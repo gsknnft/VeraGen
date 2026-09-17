@@ -1,22 +1,10 @@
-> **Current version: 0.3.0 (published)**
-> **Release lane:** prebuilt-native distribution + deterministic fallback (`prebuilt -> bindings -> TS`).
-
-
 <p align="center">
   <img src="/public/brand/source/veragen-logo-v1.png" alt="VeraGen Logo" width="180" />
 </p>
 
 <p align="center">
-  <h1 style="font-size:2.5rem; font-family:Segoe UI, Arial, sans-serif; margin-bottom:0.2em;">
-    @gsknnft/veragen
-  </h1>
-</p>
-
-<p align="center">
   <img src="/public/brand/source/veragen-share-v1.png" alt="VeraGen Hero" />
 </p>
-
-
 
 # VeraGen
 
@@ -28,6 +16,9 @@ section).
 
 See [SCOPE.md](./SCOPE.md) for the product bet, architecture, known
 constraints, and 7-day plan.
+
+> **Current version: 0.3.0 (published)**
+> **Release lane:** prebuilt-native distribution + deterministic fallback (`prebuilt -> bindings -> TS`).
 
 ## Setup
 
