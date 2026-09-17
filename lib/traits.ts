@@ -1,12 +1,15 @@
 // Deterministic, weighted trait selection — mirrors the canonical
-// implementation in @sigilnet/bittyverse's src/trait-roll.ts (rollFrom +
-// pickWeighted + resolveWeightedTraits) rather than inventing a second
-// algorithm. loopface is a standalone repo outside the SigilNet pnpm
-// workspace, so it can't `workspace:*`-depend on that package directly;
-// this is a deliberate copy, not a drift-prone reinvention. If loopface
-// ever moves into the SigilNet monorepo (or @sigilnet/bittyverse gets
-// published), this file should be deleted in favor of the real import —
-// keep the two in sync until then.
+// implementation in SigilNet's packages/weighted-roll (@gsknnft/weighted-roll,
+// the one-shot half: rollFrom + pickWeighted + resolveWeightedTraits) rather
+// than inventing a second algorithm. That package exists specifically so
+// this logic has exactly one home instead of being copy-pasted per
+// consumer — it's what packages/art-engine's DNA generation and
+// packages/bittyverse's maturation resolver both depend on. loopface is a
+// standalone repo outside the SigilNet pnpm workspace, so it can't
+// `workspace:*`-depend on it directly; this is a deliberate copy, not a
+// drift-prone reinvention. If loopface ever moves into the SigilNet
+// monorepo (or @gsknnft/weighted-roll gets published), this file should be
+// deleted in favor of the real import — keep the two in sync until then.
 //
 // The same seed must always resolve to the same trait combination —
 // otherwise a mint could be silently "re-rolled" into something rarer

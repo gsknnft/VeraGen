@@ -93,14 +93,19 @@ pages carry an explicit disclaimer banner.
   `collectionId:mintNumber`, optionally extended with a supplied
   `walletAddress`/`txHash`, and runs it through `lib/traits.ts` to pick
   one weighted option per category. **`lib/traits.ts` deliberately mirrors
-  `@sigilnet/bittyverse`'s `src/trait-roll.ts`** (`rollFrom` FNV-1a hash +
-  `pickWeighted` cumulative-weight walk) rather than a second invented
-  algorithm — loopface is a standalone repo outside the SigilNet pnpm
-  workspace, so it can't `workspace:*`-depend on that package directly.
-  If loopface ever moves into the SigilNet monorepo, or `@sigilnet/bittyverse`
-  gets published, delete this file for the real import. Until then the two
-  must be kept in sync by hand — a real, acknowledged tradeoff, not an
-  oversight.
+  SigilNet's `packages/weighted-roll`** (`@gsknnft/weighted-roll` —
+  `rollFrom` FNV-1a hash + `pickWeighted` cumulative-weight walk) rather
+  than a second invented algorithm. That package is itself an extraction:
+  the same "weighted deterministic pick" logic used to live separately in
+  both `packages/art-engine` (DNA generation) and `packages/bittyverse`
+  (the maturation resolver) before being pulled into one shared home —
+  `bittyverse` now consumes it rather than hosting it, which is exactly
+  the shape loopface's copy should eventually collapse into too. loopface
+  is a standalone repo outside the SigilNet pnpm workspace, so it can't
+  `workspace:*`-depend on it directly. If loopface ever moves into the
+  SigilNet monorepo, or `@gsknnft/weighted-roll` gets published, delete
+  this file for the real import. Until then the two must be kept in sync
+  by hand — a real, acknowledged tradeoff, not an oversight.
 - Wallet/tx-hash as seed input is deliberate, and deliberately *not*
   identity: `ADR-009` (SigilNet) is explicit that *"the persistent
   economic subject is a canonical Bitty `characterId`, not an owner
