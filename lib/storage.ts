@@ -78,3 +78,16 @@ export async function persistRemoteVideo(
   const buffer = Buffer.from(await res.arrayBuffer());
   return uploadBuffer(key, buffer, "video/mp4");
 }
+
+// Re-fetches an already-hosted image and re-encodes it as a data URI —
+// used when reusing a saved Character's reference photo, so it goes to
+// Higgsfield the same way a fresh upload does (see the data-URI TODO in
+// lib/higgsfield.ts).
+export async function fetchAsDataUri(url: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch image (${res.status}): ${url}`);
+  }
+  const buffer = Buffer.from(await res.arrayBuffer());
+  return `data:image/jpeg;base64,${buffer.toString("base64")}`;
+}

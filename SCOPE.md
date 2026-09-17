@@ -16,8 +16,8 @@ A browser-based video studio, single project per session (no accounts in
 v1):
 
 1. **Generate** — write a prompt (or start from a vibe preset that
-   fills the prompt box), optionally attach a face photo, hit "Add clip."
-   Higgsfield renders it; it lands in the clip bin.
+   fills the prompt box), attach a face photo or pick a saved character,
+   hit "Add clip." Higgsfield renders it; it lands in the clip bin.
 2. **Arrange** — drag clips into order on the timeline, trim each one's
    in/out points, choose a hard cut or crossfade into the next clip.
 3. **Preview** — the arrangement plays live, in the browser, as you edit
@@ -25,19 +25,43 @@ v1):
 4. **Export** — render the arranged, trimmed, transitioned sequence into
    one downloadable MP4.
 
-Non-goals for v1: accounts/login, multi-project management UI, audio
-tracks, text overlays, multi-track compositing (picture-in-picture,
-layered video) — single video track only. All are natural phase-2 work
-once the core loop is proven.
+**Characters and the style lock** are what turn "a demo" into "a world":
+
+- A **Character** (`prisma/schema.prisma` → `Character`) is a saved face
+  reference — name + reference photo — scoped to a project. Pick one in
+  the generate panel instead of re-uploading a photo every time, and the
+  same face stays consistent across every clip that uses it. This is
+  the single highest-leverage feature for repeat use: a one-off face
+  swap is a novelty tried once; a character you can keep generating new
+  content with is a reason to come back.
+- A project's **style lock** (free text, e.g. "shot on 35mm,
+  teal-and-orange grade, neon rim light") gets silently appended to
+  every clip's prompt generated in that project. It's what makes clips
+  generated hours apart, with different prompts, still read as one
+  world instead of unrelated outputs — the "collection" cohesion,
+  without building a separate multi-project brand-kit system nobody
+  would discover in a 7-day window.
+
+Non-goals for v1: accounts/login, characters/style-locks shared *across*
+projects (a project is the current unit of "world"; promoting Character
+to a cross-project entity is natural phase-2 once one project's version
+is proven), multi-project management UI, audio tracks, burned-in
+captions, multi-track compositing (picture-in-picture, layered video) —
+single video track only.
 
 ## Architecture
 
 - **Next.js (App Router, TS)**. Server routes hold all secrets
   (Higgsfield key, storage credentials); nothing sensitive reaches the
   client.
-- **Postgres via Prisma** (`prisma/schema.prisma`) — `Project` → `Clip`
-  (ordered, with trim window + transition type) → `Export`. Points at
-  any reachable Postgres, managed or self-hosted (`DATABASE_URL`).
+- **Postgres via Prisma** (`prisma/schema.prisma`) — `Project` (holds the
+  style lock) → `Clip` (ordered, with trim window + transition type,
+  optionally linked to a `Character`) and `Character` (saved face
+  reference) → `Export`. Points at any reachable Postgres, managed or
+  self-hosted (`DATABASE_URL`). A committed placeholder `.env` exists
+  only so `prisma generate` (which runs on every `pnpm install`) has a
+  syntactically valid `DATABASE_URL` to parse — it never connects at
+  generate time; real credentials go in `.env.local`, which overrides it.
 - **S3-compatible object storage** (`lib/storage.ts`, via
   `@aws-sdk/client-s3` with path-style addressing) — works unchanged
   against AWS S3, R2, B2, or a self-hosted MinIO instance. Every

@@ -3,7 +3,7 @@ import sharp from "sharp";
 import { prisma } from "@/lib/db";
 import { submitVideoJob } from "@/lib/higgsfield";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { uploadBuffer } from "@/lib/storage";
+import { uploadBuffer, fetchAsDataUri } from "@/lib/storage";
 import { VALID_VIBES, type Vibe } from "@/lib/vibes";
 import { randomUUID } from "crypto";
 
@@ -33,6 +33,7 @@ export async function POST(
   const file = form.get("image");
   const promptField = form.get("prompt");
   const vibeField = form.get("vibe");
+  const characterIdField = form.get("characterId");
 
   const prompt = typeof promptField === "string" ? promptField.trim() : "";
   const vibe: Vibe =
@@ -46,7 +47,21 @@ export async function POST(
 
   let imageUrl: string | undefined;
   let durableImageUrl: string | undefined;
-  if (file instanceof File) {
+  let characterId: string | undefined;
+
+  if (typeof characterIdField === "string" && characterIdField) {
+    const character = await prisma.character.findFirst({
+      where: { id: characterIdField, projectId },
+    });
+    if (!character) {
+      return NextResponse.json({ error: "Character not found" }, { status: 404 });
+    }
+    characterId = character.id;
+    durableImageUrl = character.referenceImageUrl;
+    // TODO(day-1 spike): same data-URI-vs-hosted-URL question as below —
+    // once confirmed, this can skip the re-fetch and pass the hosted URL.
+    imageUrl = await fetchAsDataUri(character.referenceImageUrl);
+  } else if (file instanceof File) {
     if (file.size > MAX_UPLOAD_BYTES) {
       return NextResponse.json({ error: "Image too large (max 8MB)" }, { status: 400 });
     }
@@ -70,6 +85,10 @@ export async function POST(
     imageUrl = `data:image/jpeg;base64,${clean.toString("base64")}`;
   }
 
+  // The style lock is what makes clips generated separately, over days,
+  // still read as the same world — every clip in the project inherits it.
+  const finalPrompt = project.styleLock ? `${prompt}. ${project.styleLock}` : prompt;
+
   const last = await prisma.clip.findFirst({
     where: { projectId },
     orderBy: { order: "desc" },
@@ -77,7 +96,7 @@ export async function POST(
   const order = (last?.order ?? -1) + 1;
 
   try {
-    const { requestId } = await submitVideoJob({ prompt, imageUrl });
+    const { requestId } = await submitVideoJob({ prompt: finalPrompt, imageUrl });
     const clip = await prisma.clip.create({
       data: {
         projectId,
@@ -85,6 +104,7 @@ export async function POST(
         prompt,
         vibe,
         sourceImageUrl: durableImageUrl ?? null,
+        characterId,
         status: "processing",
         higgsfieldRequestId: requestId,
       },

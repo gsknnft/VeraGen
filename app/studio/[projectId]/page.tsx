@@ -13,7 +13,10 @@ export default async function StudioPage({
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    include: { clips: { orderBy: { order: "asc" } } },
+    include: {
+      clips: { orderBy: { order: "asc" } },
+      characters: { orderBy: { createdAt: "asc" } },
+    },
   });
 
   if (!project) notFound();
@@ -21,7 +24,12 @@ export default async function StudioPage({
   return (
     <main className="studio-main">
       <h1>loopface studio</h1>
-      <StudioClient projectId={project.id} initialClips={project.clips} />
+      <StudioClient
+        projectId={project.id}
+        initialClips={project.clips}
+        initialCharacters={project.characters}
+        initialStyleLock={project.styleLock}
+      />
     </main>
   );
 }

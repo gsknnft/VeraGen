@@ -6,9 +6,16 @@ import { VIBE_OPTIONS, type Vibe } from "@/lib/vibes";
 interface GeneratePanelProps {
   onGenerate: (form: FormData) => Promise<void>;
   disabled: boolean;
+  selectedCharacterId: string | null;
+  selectedCharacterName: string | null;
 }
 
-export function GeneratePanel({ onGenerate, disabled }: GeneratePanelProps) {
+export function GeneratePanel({
+  onGenerate,
+  disabled,
+  selectedCharacterId,
+  selectedCharacterName,
+}: GeneratePanelProps) {
   const [prompt, setPrompt] = useState("");
   const [vibe, setVibe] = useState<Vibe>("custom");
   const [preview, setPreview] = useState<string | null>(null);
@@ -34,7 +41,11 @@ export function GeneratePanel({ onGenerate, disabled }: GeneratePanelProps) {
     const form = new FormData();
     form.append("prompt", prompt);
     form.append("vibe", vibe);
-    if (file) form.append("image", file);
+    if (selectedCharacterId) {
+      form.append("characterId", selectedCharacterId);
+    } else if (file) {
+      form.append("image", file);
+    }
 
     try {
       await onGenerate(form);
@@ -51,30 +62,34 @@ export function GeneratePanel({ onGenerate, disabled }: GeneratePanelProps) {
 
   return (
     <form className="generate-panel" onSubmit={handleSubmit}>
-      <div
-        className={`dropzone small ${preview ? "active" : ""}`}
-        onClick={() => inputRef.current?.click()}
-      >
-        {preview ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt="Selected face" />
-        ) : (
-          <span>Tap to add a face photo (optional)</span>
-        )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) {
-              setFile(f);
-              setPreview(URL.createObjectURL(f));
-            }
-          }}
-        />
-      </div>
+      {selectedCharacterId ? (
+        <p className="subtitle">Using character: {selectedCharacterName}</p>
+      ) : (
+        <div
+          className={`dropzone small ${preview ? "active" : ""}`}
+          onClick={() => inputRef.current?.click()}
+        >
+          {preview ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={preview} alt="Selected face" />
+          ) : (
+            <span>Tap to add a face photo (optional, one-off)</span>
+          )}
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) {
+                setFile(f);
+                setPreview(URL.createObjectURL(f));
+              }
+            }}
+          />
+        </div>
+      )}
 
       <textarea
         placeholder="Describe the clip — camera movement, action, mood…"

@@ -4,22 +4,32 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { GeneratePanel } from "./GeneratePanel";
 import { Timeline, type ClipData } from "./Timeline";
 import { PreviewPlayer } from "./PreviewPlayer";
+import { CharacterPanel, type CharacterData } from "./CharacterPanel";
 import type { TimelineClip } from "@/remotion/durationUtils";
 
 const POLL_INTERVAL_MS = 3000;
+const STYLE_LOCK_DEBOUNCE_MS = 600;
 
 export function StudioClient({
   projectId,
   initialClips,
+  initialCharacters,
+  initialStyleLock,
 }: {
   projectId: string;
   initialClips: ClipData[];
+  initialCharacters: CharacterData[];
+  initialStyleLock: string | null;
 }) {
   const [clips, setClips] = useState<ClipData[]>(initialClips);
+  const [characters, setCharacters] = useState<CharacterData[]>(initialCharacters);
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+  const [styleLock, setStyleLock] = useState(initialStyleLock ?? "");
   const [exporting, setExporting] = useState(false);
   const [exportUrl, setExportUrl] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const trimTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const styleLockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasProcessing = clips.some((c) => c.status === "processing");
 
@@ -100,6 +110,18 @@ export function StudioClient({
     fetch(`/api/clips/${clipId}`, { method: "DELETE" }).catch(() => {});
   }
 
+  function handleStyleLockChange(value: string) {
+    setStyleLock(value);
+    if (styleLockTimer.current) clearTimeout(styleLockTimer.current);
+    styleLockTimer.current = setTimeout(() => {
+      fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ styleLock: value || null }),
+      }).catch(() => {});
+    }, STYLE_LOCK_DEBOUNCE_MS);
+  }
+
   async function handleExport() {
     setExporting(true);
     setExportError(null);
@@ -129,6 +151,9 @@ export function StudioClient({
       transitionIn: c.transitionIn,
     }));
 
+  const selectedCharacterName =
+    characters.find((c) => c.id === selectedCharacterId)?.name ?? null;
+
   return (
     <div className="studio">
       <PreviewPlayer clips={completedClips} />
@@ -141,7 +166,30 @@ export function StudioClient({
         onDelete={handleDelete}
       />
 
-      <GeneratePanel onGenerate={handleGenerate} disabled={false} />
+      <label className="style-lock">
+        World style lock
+        <input
+          type="text"
+          placeholder="e.g. shot on 35mm, teal-and-orange grade, neon rim light"
+          value={styleLock}
+          onChange={(e) => handleStyleLockChange(e.target.value)}
+        />
+      </label>
+
+      <CharacterPanel
+        projectId={projectId}
+        characters={characters}
+        selectedId={selectedCharacterId}
+        onSelect={setSelectedCharacterId}
+        onCreated={(c) => setCharacters((prev) => [...prev, c])}
+      />
+
+      <GeneratePanel
+        onGenerate={handleGenerate}
+        disabled={false}
+        selectedCharacterId={selectedCharacterId}
+        selectedCharacterName={selectedCharacterName}
+      />
 
       <div className="export-row">
         <button className="primary" onClick={handleExport} disabled={exporting || completedClips.length === 0}>

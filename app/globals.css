@@ -252,3 +252,84 @@ video {
   color: #f2f2f2;
   text-decoration: underline;
 }
+
+.style-lock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.style-lock input {
+  background: #141414;
+  color: #f2f2f2;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+}
+
+.character-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.character-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.character-chip {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid #333;
+  background: #141414;
+  color: #f2f2f2;
+  cursor: pointer;
+  font-size: 0.75rem;
+  min-width: 72px;
+}
+
+.character-chip img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.character-chip.selected {
+  border-color: #f2f2f2;
+  background: #1f1f1f;
+}
+
+.character-chip.add {
+  justify-content: center;
+  min-height: 64px;
+}
+
+.character-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #222;
+  border-radius: 10px;
+}
+
+.character-form input[type="text"] {
+  background: #141414;
+  color: #f2f2f2;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}

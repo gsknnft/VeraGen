@@ -12,12 +12,34 @@ datasource db {
 }
 
 model Project {
-  id        String   @id @default(cuid())
-  name      String   @default("Untitled project")
-  clips     Clip[]
-  exports   Export[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id      String  @id @default(cuid())
+  name    String  @default("Untitled project")
+  // Free-text style tokens auto-appended to every clip's prompt in this
+  // project ("shot on 35mm, teal-and-orange grade, neon rim light") — the
+  // mechanism that makes a set of separately-generated clips read as one
+  // world instead of unrelated demos.
+  styleLock  String?
+  clips      Clip[]
+  characters Character[]
+  exports    Export[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Character {
+  id                String  @id @default(cuid())
+  project           Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId         String
+  name              String
+  // Durable copy of the reference face photo — generations reuse this
+  // instead of asking for a fresh upload each time, which is what keeps
+  // the same face consistent across many clips.
+  referenceImageUrl String
+  notes             String?
+  clips             Clip[]
+  createdAt         DateTime @default(now())
+
+  @@index([projectId])
 }
 
 enum ClipStatus {
@@ -43,6 +65,11 @@ model Clip {
   prompt         String
   vibe           String
   sourceImageUrl String?
+
+  // Set when this clip was generated from a saved Character rather than
+  // a one-off upload.
+  character   Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  characterId String?
 
   status              ClipStatus @default(processing)
   higgsfieldRequestId String?
