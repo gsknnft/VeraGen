@@ -5,9 +5,7 @@ import { fade } from "@remotion/transitions/fade";
 import { TitleCard } from "./TitleCard";
 import { BrandWatermark } from "./BrandWatermark";
 import {
-  CROSSFADE_SECONDS,
-  FPS,
-  clipLengthSeconds,
+  timelineFrames,
   introFrames,
   outroFrames,
   totalDurationInFrames,
@@ -15,8 +13,6 @@ import {
   type BrandKit,
   type TimelineClip,
 } from "./durationUtils";
-
-const FADE_FRAMES = Math.round(CROSSFADE_SECONDS * FPS);
 
 function CaptionOverlay({ text }: { text: string }) {
   return (
@@ -54,24 +50,24 @@ export const ClipsSequence: React.FC<{ clips: TimelineClip[] }> = ({ clips }) =>
     {clips.flatMap((clip, i) => {
       const items: React.ReactNode[] = [];
 
-      if (i > 0 && clip.transitionIn === "crossfade") {
+      const timing = timelineFrames(clips)[i];
+      if (timing.fadeIn > 0) {
         items.push(
           <TransitionSeries.Transition
             key={`${clip.id}-transition`}
             presentation={fade()}
-            timing={linearTiming({ durationInFrames: FADE_FRAMES })}
+            timing={linearTiming({ durationInFrames: timing.fadeIn })}
           />
         );
       }
 
-      const lengthFrames = Math.round(clipLengthSeconds(clip) * FPS);
       items.push(
-        <TransitionSeries.Sequence key={clip.id} durationInFrames={Math.max(lengthFrames, 1)}>
+        <TransitionSeries.Sequence key={clip.id} durationInFrames={timing.duration}>
           <AbsoluteFill>
             <OffthreadVideo
               src={clip.videoUrl}
-              startFrom={Math.round(clip.trimStart * FPS)}
-              endAt={Math.round(clip.trimEnd * FPS)}
+              startFrom={timing.start}
+              endAt={timing.end}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
             {clip.caption && <CaptionOverlay text={clip.caption} />}

@@ -1,5 +1,6 @@
 :root {
   color-scheme: dark;
+  --brand-accent: #ff713e;
 }
 
 * {
@@ -91,7 +92,7 @@ button.primary {
   padding: 14px;
   border-radius: 10px;
   border: none;
-  background: #f2f2f2;
+  background: var(--brand-accent);
   color: #0a0a0a;
   font-weight: 600;
   font-size: 1rem;
@@ -351,3 +352,6 @@ video {
   padding: 8px 10px;
   font-size: 0.9rem;
 }
+
+/* VeraGen identity shared by website and editor. */
+.brand-link{display:inline-flex;align-items:center;flex-shrink:0}.brand-link img{display:block}.eyebrow{font-size:10px;letter-spacing:.18em;font-weight:600;color:#b8b5b1;line-height:1.7}.app-nav{display:flex;align-items:center;gap:24px;padding:0 0 22px;border-bottom:1px solid #ffffff1a;font-size:13px}.app-nav>.brand-link{margin-right:auto}.app-nav>a{color:#aaa6a0;text-decoration:none}.app-nav>a[aria-current=page]{color:#ff9e76}.studio-entry{max-width:520px;padding-top:60px}.entry-art{height:180px;background:url(/brand/motion-frames-v1.webp) center/cover;border-radius:12px;margin-top:20px}.secondary{padding:13px;background:#191717;color:#f2eee8;border:1px solid #49423e;border-radius:10px;cursor:pointer}.preview-empty{width:100%;min-width:0;flex-direction:column;gap:16px;background:radial-gradient(ellipse at 50% 85%,#3d2119,#131314 65%);color:#b2aaa5}.preview-empty strong{color:#f2eee8;font-weight:500;font-size:17px}.preview-empty span{font-size:12px}.export-row{flex-wrap:wrap}.brand-assets section{padding:26px;border:1px solid #302b27;border-radius:12px;display:grid;gap:22px}.brand-assets section a{color:#ffae8b;font-size:13px}.brand-icons{display:flex;gap:30px}a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #ff9b73;outline-offset:4px}@media(max-width:500px){.app-nav{gap:13px;flex-wrap:wrap}.app-nav .brand-link img{width:140px;height:auto}.brand-assets section{padding:18px}.brand-assets section>img{max-width:100%;height:auto}}

@@ -23,7 +23,7 @@ export const ASPECTS: Record<Aspect, { width: number; height: number }> = {
 export const DEFAULT_ASPECT: Aspect = "9:16";
 
 export function isAspect(value: string): value is Aspect {
-  return value in ASPECTS;
+  return Object.prototype.hasOwnProperty.call(ASPECTS, value);
 }
 
 export type TransitionType = "cut" | "crossfade";
@@ -42,15 +42,22 @@ export function clipLengthSeconds(clip: TimelineClip): number {
 }
 
 export function totalDurationSeconds(clips: TimelineClip[]): number {
-  const raw = clips.reduce((sum, c) => sum + clipLengthSeconds(c), 0);
-  const crossfadeCount = clips
-    .slice(1)
-    .filter((c) => c.transitionIn === "crossfade").length;
-  return Math.max(raw - crossfadeCount * CROSSFADE_SECONDS, 0);
+  return timelineFrames(clips).reduce((sum, item) => sum + item.duration - item.fadeIn, 0) / FPS;
 }
 
 export function totalDurationInFrames(clips: TimelineClip[]): number {
-  return Math.max(Math.round(totalDurationSeconds(clips) * FPS), 1);
+  return Math.max(timelineFrames(clips).reduce((sum, item) => sum + item.duration - item.fadeIn, 0), 1);
+}
+
+/** Quantize clip endpoints once; reserve half each clip for either adjacent fade. */
+export function timelineFrames(clips: TimelineClip[]) {
+  const frames = clips.map(clip => {
+    const start = Math.max(0, Math.round(clip.trimStart * FPS));
+    const end = Math.max(start + 1, Math.round(clip.trimEnd * FPS));
+    return { start, end, duration: end - start, fadeIn: 0 };
+  });
+  return frames.map((item, i) => ({ ...item, fadeIn: i > 0 && clips[i].transitionIn === "crossfade"
+    ? Math.min(Math.round(CROSSFADE_SECONDS * FPS), Math.floor(frames[i - 1].duration / 2), Math.floor(item.duration / 2)) : 0 }));
 }
 
 // ─── Brand kit: intro/outro cards wrapped around the clips ─────────────────
