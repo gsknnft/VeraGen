@@ -49,19 +49,77 @@ is proven), multi-project management UI, audio tracks, burned-in
 captions, multi-track compositing (picture-in-picture, layered video) —
 single video track only.
 
+## Mock mode — building with $0 spent and no Higgsfield key yet
+
+`lib/higgsfield.ts` checks for `HF_API_KEY_ID` / `HF_API_KEY_SECRET` on
+every call. Missing either one flips on mock mode: `submitVideoJob`
+returns instantly, `getJobStatus` returns "completed" against one of a
+handful of stable public-domain sample clips (Google's long-standing
+`gtv-videos-bucket` test videos), and the clip/mint status routes skip
+re-hosting and duration-probing entirely for those (they're already
+permanently hosted, and duration is hardcoded) — so mock mode needs no
+object storage configured either. The studio and collection pages show a
+plain banner when it's active. This is what lets the whole pipeline —
+characters, traits, timeline, preview — get built and demoed for free
+before there's a real key, and it turns off automatically the moment a
+real key is set, no code change.
+
+Worth trying before paying for one: the original bounty post
+(@gpumaxxer) said Higgsfield "will even power it" for anyone building a
+competitor on their API — replying to that post or DMing them directly
+for bounty-participant API credits is a real option, not just a hope.
+
+## Collections — trait-based generative sets (the "Bittyverse" use case)
+
+A second system alongside the video studio, for exactly the "each mint
+generates a unique Bitty" case: a **Collection** (`/collections`) defines
+a trait vocabulary once, then generates one unique, *reproducible* asset
+per mint number, instead of a hand-edited timeline.
+
+- `TraitCategory` (e.g. "Element", "Wings", "Aura") holds `TraitOption`s,
+  each an integer `weight` (rarity) and a `promptFragment` — the actual
+  text that gets woven into the generation prompt when that option is
+  picked ("iridescent scales, faint ember glow along the spine").
+- Minting (`POST /api/collections/[id]/mint`) derives a seed from
+  `${collectionId}:${mintNumber}` and runs it through a seeded PRNG
+  (`lib/traits.ts`) to pick one weighted option per category. This is
+  deterministic on purpose: mint #42 always yields the same trait
+  combination, so a reveal can never be silently re-rolled into
+  something rarer after the fact — the property an actual numbered drop
+  needs that free-text character generation doesn't.
+- The collection's own **style lock** (same mechanism as a project's)
+  gets appended to every mint's assembled prompt, so the whole set —
+  hundreds of mints, generated over weeks — reads as one consistent art
+  style instead of drifting.
+- Each mint currently generates a short **video** clip, reusing the
+  entire existing Higgsfield/storage/status-polling pipeline as-is
+  (`app/api/mints/[id]/status/route.ts` mirrors the clip status route
+  almost exactly). Worth deciding deliberately, not by default: is a
+  short generated clip per mint the actual product (a "living" NFT), or
+  does BittyDragons want a still image per mint? A still is a smaller
+  follow-up (grab one frame, or add an image-specific Higgsfield
+  endpoint) once that's settled.
+- Non-goals for this pass: linking a Collection's mints back into a
+  video-studio timeline (they're separate systems for now), any
+  on-chain/mint-contract integration — this only generates the media
+  asset, it doesn't touch a mint transaction.
+
 ## Architecture
 
 - **Next.js (App Router, TS)**. Server routes hold all secrets
   (Higgsfield key, storage credentials); nothing sensitive reaches the
   client.
-- **Postgres via Prisma** (`prisma/schema.prisma`) — `Project` (holds the
-  style lock) → `Clip` (ordered, with trim window + transition type,
-  optionally linked to a `Character`) and `Character` (saved face
-  reference) → `Export`. Points at any reachable Postgres, managed or
-  self-hosted (`DATABASE_URL`). A committed placeholder `.env` exists
-  only so `prisma generate` (which runs on every `pnpm install`) has a
-  syntactically valid `DATABASE_URL` to parse — it never connects at
-  generate time; real credentials go in `.env.local`, which overrides it.
+- **Postgres via Prisma** (`prisma/schema.prisma`) — two independent
+  trees off the same database: `Project` (style lock) → `Clip` (ordered,
+  trim window, transition type, optionally linked to a `Character`) and
+  `Character` (saved face reference) → `Export` for the video studio;
+  `Collection` (style lock) → `TraitCategory` → `TraitOption` and
+  `Collection` → `Mint` → `MintTrait` for generative collections. Points
+  at any reachable Postgres, managed or self-hosted (`DATABASE_URL`). A
+  committed placeholder `.env` exists only so `prisma generate` (which
+  runs on every `pnpm install`) has a syntactically valid `DATABASE_URL`
+  to parse — it never connects at generate time; real credentials go in
+  `.env.local`, which overrides it.
 - **S3-compatible object storage** (`lib/storage.ts`, via
   `@aws-sdk/client-s3` with path-style addressing) — works unchanged
   against AWS S3, R2, B2, or a self-hosted MinIO instance. Every
@@ -119,6 +177,45 @@ single video track only.
 - **No auth yet**: the export cap and rate limiting are IP-based, not
   account-based, because there's no login. A tiered payment structure
   needs accounts before it can gate anything per-user.
+
+## Deploying: Vercel + a custom subdomain
+
+Straightforward and free on Vercel's Hobby tier: import the GitHub repo,
+add a subdomain (e.g. `studio.gsknnft.com`) under Project Settings →
+Domains, and point a CNAME at the hostname Vercel gives you (or an A/ALIAS
+record if the registrar requires one at the root) — no paid plan needed
+for a custom domain itself.
+
+The one piece that genuinely doesn't fit a standard serverless deploy is
+**export** (`renderMedia`, in `app/api/projects/[id]/export/route.ts`):
+it drives a real headless Chromium instance, and Remotion's own docs
+steer people away from running that in a vanilla serverless function
+toward Remotion Lambda or a self-hosted render step — the Chromium
+binary is large enough to strain serverless function size/cold-start
+limits, independent of Vercel's pricing tier. (Concretely hit a version
+of this while building: the sandbox here downloads Remotion's headless
+Chromium from a host outside its network allowlist and the download was
+refused outright — a different cause than Vercel's limits, but the same
+underlying shape of problem: this render step assumes it can pull down
+and run a real browser, and any locked-down environment will balk at
+that somewhere.)
+
+Given self-hosted Postgres and MinIO are already the plan, the
+consistent choice is to run **export** — or the whole app — on that same
+hardware rather than Vercel, and it's worth deciding deliberately:
+
+- **App on Vercel, export self-hosted**: cleanest URLs and zero-cost
+  hosting for everything except rendering, but means splitting the
+  export route into its own small service the Vercel app calls out to —
+  real, if modest, added complexity.
+- **Everything self-hosted**: one deploy target, no split, export "just
+  works" since it's a normal Node process on hardware you control — costs
+  a bit of ops (process manager, reverse proxy for the domain, keeping it
+  updated) instead.
+
+Generation, the timeline, and preview (the in-browser Remotion `<Player>`
+runs in the visitor's own browser, not server-side) work fine on Vercel
+either way — only the final render step is in question.
 
 ## 7-day plan
 

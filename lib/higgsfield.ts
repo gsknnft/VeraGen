@@ -9,6 +9,36 @@ const HF_IMAGE2VIDEO_ENDPOINT = "/v1/image2video/dop";
 // TODO(day-1 spike): confirm the text-only (no face input) endpoint name.
 const HF_TEXT2VIDEO_ENDPOINT = "/v1/text2video/dop";
 
+// --- Mock mode ---------------------------------------------------------
+// No Higgsfield key configured yet? Every clip "generates" instantly
+// against a small set of stable, public-domain sample videos instead of
+// calling the (paid) API. This is what lets the whole pipeline —
+// characters, traits, timeline, preview, export — get built and tested
+// for $0 before there's a real key. It turns off the moment
+// HF_API_KEY_ID / HF_API_KEY_SECRET are set — no code change needed.
+const MOCK_CLIPS: Record<string, string> = {
+  "cinematic-pan": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+  "dance-loop": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+  "talking-head": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+  "action-hero": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+  "retro-film": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
+  "product-hold": "https://storage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
+  custom: "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+};
+const MOCK_CLIP_DURATION_SECONDS = 8;
+
+export function isMockMode(): boolean {
+  return !process.env.HF_API_KEY_ID || !process.env.HF_API_KEY_SECRET;
+}
+
+function pickMockClip(prompt: string): string {
+  const keys = Object.keys(MOCK_CLIPS);
+  let hash = 0;
+  for (let i = 0; i < prompt.length; i++) hash = (hash * 31 + prompt.charCodeAt(i)) | 0;
+  return keys[Math.abs(hash) % keys.length];
+}
+// ------------------------------------------------------------------------
+
 function authHeader(): string {
   const id = process.env.HF_API_KEY_ID;
   const secret = process.env.HF_API_KEY_SECRET;
@@ -29,6 +59,10 @@ export interface SubmitJobResult {
 }
 
 export async function submitVideoJob(input: GenerateInput): Promise<SubmitJobResult> {
+  if (isMockMode()) {
+    return { requestId: `mock:${pickMockClip(input.prompt)}` };
+  }
+
   const prompt = input.prompt;
   const useImage = Boolean(input.imageUrl);
 
@@ -66,10 +100,20 @@ export async function submitVideoJob(input: GenerateInput): Promise<SubmitJobRes
 
 export type JobStatus =
   | { status: "processing" }
-  | { status: "completed"; videoUrl: string }
+  | { status: "completed"; videoUrl: string; skipPersist?: boolean; durationSeconds?: number }
   | { status: "failed"; error: string };
 
 export async function getJobStatus(requestId: string): Promise<JobStatus> {
+  if (requestId.startsWith("mock:")) {
+    const key = requestId.slice("mock:".length);
+    return {
+      status: "completed",
+      videoUrl: MOCK_CLIPS[key] ?? MOCK_CLIPS.custom,
+      skipPersist: true,
+      durationSeconds: MOCK_CLIP_DURATION_SECONDS,
+    };
+  }
+
   const res = await fetch(`${HF_BASE_URL}/v1/jobs/${requestId}`, {
     headers: { Authorization: authHeader() },
   });

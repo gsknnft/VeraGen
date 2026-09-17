@@ -102,3 +102,88 @@ model Export {
   durationSeconds Float
   createdAt       DateTime @default(now())
 }
+
+// --- Generative collections (e.g. "BittyDragons") -----------------------
+// A separate system from Project/Clip: instead of editing one video
+// timeline, a Collection defines a trait vocabulary and generates one
+// unique, reproducible asset per mint — a name + reference photo isn't
+// enough here, a mint number needs to deterministically imply the same
+// trait combination every time (so a reveal can't be "regenerated" into
+// something rarer after the fact).
+
+model Collection {
+  id              String          @id @default(cuid())
+  name            String
+  // Same mechanism as Project.styleLock — appended to every mint's
+  // assembled prompt so the whole set reads as one world.
+  styleLock       String?
+  traitCategories TraitCategory[]
+  mints           Mint[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model TraitCategory {
+  id           String       @id @default(cuid())
+  collection   Collection   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collectionId String
+  name         String
+  sortOrder    Int          @default(0)
+  options      TraitOption[]
+
+  @@index([collectionId])
+}
+
+model TraitOption {
+  id             String        @id @default(cuid())
+  category       TraitCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId     String
+  label          String
+  // Appended into the mint's prompt when this option is chosen, e.g.
+  // "iridescent scales, faint ember glow along the spine".
+  promptFragment String
+  // Relative rarity — higher picks more often. Plain integers, not
+  // percentages (a 1/5/20 split reads as roughly common/uncommon/rare).
+  weight         Int           @default(1)
+  mintTraits     MintTrait[]
+
+  @@index([categoryId])
+}
+
+enum MintStatus {
+  processing
+  completed
+  failed
+}
+
+model Mint {
+  id           String     @id @default(cuid())
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collectionId String
+  // The NFT/drop's mint number — the seed for deterministic trait
+  // selection, not just a display label.
+  mintNumber   Int
+
+  prompt              String
+  status              MintStatus @default(processing)
+  higgsfieldRequestId String?
+  errorMessage        String?
+
+  videoUrl        String?
+  durationSeconds Float?
+
+  traits    MintTrait[]
+  createdAt DateTime    @default(now())
+
+  @@unique([collectionId, mintNumber])
+}
+
+model MintTrait {
+  id            String      @id @default(cuid())
+  mint          Mint        @relation(fields: [mintId], references: [id], onDelete: Cascade)
+  mintId        String
+  traitOption   TraitOption @relation(fields: [traitOptionId], references: [id], onDelete: Cascade)
+  traitOptionId String
+
+  @@unique([mintId, traitOptionId])
+}

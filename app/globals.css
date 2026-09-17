@@ -253,6 +253,15 @@ video {
   text-decoration: underline;
 }
 
+.mock-banner {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #2a2205;
+  border: 1px solid #5c4a0a;
+  color: #e8c766;
+  font-size: 0.8rem;
+}
+
 .style-lock {
   display: flex;
   flex-direction: column;

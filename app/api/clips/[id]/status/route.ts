@@ -42,10 +42,17 @@ export async function GET(
 
     // Completed: re-host the video in our own storage (Higgsfield's URL
     // is not guaranteed to stay valid indefinitely) and probe its real
-    // duration so trim/timeline math has accurate numbers.
-    const durableUrl = await persistRemoteVideo(status.videoUrl, `clips/${id}.mp4`);
-    const metadata = await getVideoMetadata(durableUrl);
-    const duration = metadata.durationInSeconds ?? 5;
+    // duration so trim/timeline math has accurate numbers. Mock mode's
+    // clips are already permanently hosted and their duration is known,
+    // so there's nothing to persist or probe — and no storage config
+    // needs to exist yet for mock mode to work end to end.
+    let durableUrl = status.videoUrl;
+    let duration = status.durationSeconds ?? 5;
+    if (!status.skipPersist) {
+      durableUrl = await persistRemoteVideo(status.videoUrl, `clips/${id}.mp4`);
+      const metadata = await getVideoMetadata(durableUrl);
+      duration = metadata.durationInSeconds ?? 5;
+    }
 
     const updated = await prisma.clip.update({
       where: { id },
