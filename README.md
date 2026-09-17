@@ -1,12 +1,8 @@
+# VeraGen
+
 <p align="center">
   <img src="/public/brand/source/veragen-logo-v1.png" alt="VeraGen Logo" width="180" />
 </p>
-
-<p align="center">
-  <img src="/public/brand/source/veragen-share-v1.png" alt="VeraGen Hero" />
-</p>
-
-# VeraGen
 
 A small video studio built on the [Higgsfield API](https://docs.higgsfield.ai/docs):
 prompt in, clip out, arrange clips on a timeline, export a finished video.
@@ -19,6 +15,10 @@ constraints, and 7-day plan.
 
 > **Current version: 0.3.0 (published)**
 > **Release lane:** prebuilt-native distribution + deterministic fallback (`prebuilt -> bindings -> TS`).
+
+<p align="center">
+  <img src="/public/brand/source/veragen-share-v1.png" alt="VeraGen Hero" />
+</p>
 
 ## Setup
 
