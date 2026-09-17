@@ -1,27 +1,13 @@
 // Thin wrapper around the Higgsfield API. One file, no SDK dependency —
-// easy to read and swap out. Confirm the model endpoint/name against
-// current docs (https://docs.higgsfield.ai/docs) before relying on it;
-// the API launched days before this was written.
+// easy to read and swap out. Confirm the model endpoint/name and image
+// input format against current docs (https://docs.higgsfield.ai/docs)
+// before relying on this in production; the API launched days before
+// this was written and these details are marked TODO below.
 
 const HF_BASE_URL = "https://platform.higgsfield.ai";
-const HF_MODEL_ENDPOINT = "/v1/image2video/dop";
-
-export type Vibe =
-  | "cinematic-pan"
-  | "dance-loop"
-  | "talking-head"
-  | "action-hero"
-  | "retro-film"
-  | "product-hold";
-
-const VIBE_PROMPTS: Record<Vibe, string> = {
-  "cinematic-pan": "Slow cinematic camera pan, dramatic lighting, film grain",
-  "dance-loop": "Subject dancing energetically, seamless loop, club lighting",
-  "talking-head": "Subject talking to camera, natural gestures, studio lighting",
-  "action-hero": "Subject in a dynamic action pose, motion blur, epic score energy",
-  "retro-film": "1970s film stock look, warm tones, handheld camera movement",
-  "product-hold": "Subject holding an object up to camera, studio softbox lighting",
-};
+const HF_IMAGE2VIDEO_ENDPOINT = "/v1/image2video/dop";
+// TODO(day-1 spike): confirm the text-only (no face input) endpoint name.
+const HF_TEXT2VIDEO_ENDPOINT = "/v1/text2video/dop";
 
 function authHeader(): string {
   const id = process.env.HF_API_KEY_ID;
@@ -32,26 +18,42 @@ function authHeader(): string {
   return `Key ${id}:${secret}`;
 }
 
+export interface GenerateInput {
+  prompt: string;
+  /** Data URI or hosted URL of a face photo. Omit for a prompt-only (no face) clip. */
+  imageUrl?: string;
+}
+
 export interface SubmitJobResult {
   requestId: string;
 }
 
-export async function submitFaceVideoJob(
-  imageUrl: string,
-  vibe: Vibe
-): Promise<SubmitJobResult> {
-  const res = await fetch(`${HF_BASE_URL}${HF_MODEL_ENDPOINT}`, {
-    method: "POST",
-    headers: {
-      Authorization: authHeader(),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "dop-turbo",
-      prompt: VIBE_PROMPTS[vibe],
-      input_images: [{ type: "image_url", image_url: imageUrl }],
-    }),
-  });
+export async function submitVideoJob(input: GenerateInput): Promise<SubmitJobResult> {
+  const prompt = input.prompt;
+  const useImage = Boolean(input.imageUrl);
+
+  const res = await fetch(
+    `${HF_BASE_URL}${useImage ? HF_IMAGE2VIDEO_ENDPOINT : HF_TEXT2VIDEO_ENDPOINT}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: authHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        useImage
+          ? {
+              model: "dop-turbo",
+              prompt,
+              input_images: [{ type: "image_url", image_url: input.imageUrl }],
+            }
+          : {
+              model: "dop-turbo",
+              prompt,
+            }
+      ),
+    }
+  );
 
   if (!res.ok) {
     const body = await res.text();

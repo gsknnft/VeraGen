@@ -1,0 +1,77 @@
+// Points at any Postgres instance via DATABASE_URL — a managed provider,
+// or your own (e.g. self-hosted on a Pi), as long as it's reachable from
+// wherever this app runs.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String   @default("Untitled project")
+  clips     Clip[]
+  exports   Export[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ClipStatus {
+  processing
+  completed
+  failed
+}
+
+enum TransitionType {
+  cut
+  crossfade
+}
+
+model Clip {
+  id        String  @id @default(cuid())
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+
+  // Position in the timeline; not globally unique, just an ordering hint
+  // re-sequenced on every reorder/delete.
+  order Int
+
+  prompt         String
+  vibe           String
+  sourceImageUrl String?
+
+  status              ClipStatus @default(processing)
+  higgsfieldRequestId String?
+  errorMessage        String?
+
+  // Durable copy in our own object storage — Higgsfield's own result URL
+  // is not guaranteed to stay valid indefinitely.
+  videoUrl        String?
+  durationSeconds Float?
+
+  // Trim window into the source clip, in seconds.
+  trimStart Float @default(0)
+  trimEnd   Float?
+
+  // How this clip transitions in from the previous one on the timeline.
+  // Meaningless for the first clip.
+  transitionIn TransitionType @default(cut)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId, order])
+}
+
+model Export {
+  id              String   @id @default(cuid())
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId       String
+  videoUrl        String
+  durationSeconds Float
+  createdAt       DateTime @default(now())
+}
