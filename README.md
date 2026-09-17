@@ -1,6 +1,3 @@
-[![NPM Version](https://img.shields.io/npm/v/@gsknnft/loopface.svg?style=flat-square)](https://www.npmjs.com/package/@gsknnft/loopface)
-[![Node Version](https://img.shields.io/node/v/@gsknnft/loopface.svg?style=flat-square)](https://nodejs.org)
-
 > **Current version: 0.3.0 (published)**
 > **Release lane:** prebuilt-native distribution + deterministic fallback (`prebuilt -> bindings -> TS`).
 
