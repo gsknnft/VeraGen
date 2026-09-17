@@ -20,18 +20,22 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@prisma/client": "6.19.3",
-    "@remotion/bundler": "4.0.526",
-    "@remotion/player": "4.0.526",
-    "@remotion/renderer": "4.0.526",
-    "@remotion/transitions": "4.0.526",
+    "@remotion/bundler": "4.0.522",
+    "@remotion/player": "4.0.522",
+    "@remotion/renderer": "4.0.522",
+    "@remotion/transitions": "4.0.522",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "remotion": "4.0.526",
-    "sharp": "^0.33.5"
+    "remotion": "4.0.522",
+    "sharp": "^0.33.5",
+    "better-auth": "^1.7.0",
+    "@aws-sdk/s3-request-presigner": "^3.700.0",
+    "@remotion/web-renderer": "4.0.522",
+    "@remotion/media": "4.0.522"
   },
   "devDependencies": {
-    "@remotion/cli": "4.0.526",
+    "@remotion/cli": "4.0.522",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -42,8 +46,5 @@
   },
   "engines": {
     "node": ">=20"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": ["sharp", "unrs-resolver", "@prisma/client", "@prisma/engines", "prisma", "esbuild"]
   }
 }

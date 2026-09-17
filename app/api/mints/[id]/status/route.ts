@@ -57,13 +57,7 @@ export async function GET(
       include: { traits: { include: { traitOption: true } } },
     });
     return NextResponse.json(updated);
-  } catch (err) {
-    console.error("Mint status check failed", err);
-    const updated = await prisma.mint.update({
-      where: { id },
-      data: { status: "failed", errorMessage: "Could not finalize this mint" },
-      include: { traits: { include: { traitOption: true } } },
-    });
-    return NextResponse.json(updated, { status: 200 });
+  } catch {
+    return NextResponse.json({ error: "Could not check this job. Reconnect the original Higgsfield account if your session expired; the job is preserved." }, { status: 503 });
   }
 }

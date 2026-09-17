@@ -38,11 +38,8 @@ export default async function CollectionPage({
         mint lifecycle is care- and attestation-gated elsewhere; this is
         instant and for prototyping only.
       </p>
-      {isMockMode() && (
-        <p className="mock-banner">
-          Mock mode — no Higgsfield key configured, so mints use stock
-          placeholder clips instead of real generations.
-        </p>
+      {(await isMockMode()) && (
+        <p className="mock-banner">Connect your own Higgsfield account to generate. Your API credits pay for generation; VeraGen supplies no credits.</p>
       )}
       <CollectionClient
         collectionId={collection.id}

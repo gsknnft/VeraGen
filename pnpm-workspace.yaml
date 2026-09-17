@@ -1,0 +1,12 @@
+
+# pnpm 11 replaced onlyBuiltDependencies / ignoredBuiltDependencies with a
+# single allowBuilds map: true runs the package's build scripts, false skips
+# them. Every package pnpm would otherwise block is listed explicitly, because
+# v11 turns an unlisted build script into an install ERROR rather than a warning.
+allowBuilds:
+  "sharp": true
+  "unrs-resolver": true
+  "@prisma/client": true
+  "@prisma/engines": true
+  "prisma": true
+  "esbuild": true

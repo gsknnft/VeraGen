@@ -1,9 +1,10 @@
+import { getHiggsfieldCredentials } from "@/lib/higgsfield-credentials";
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { prisma } from "@/lib/db";
 import { submitVideoJob } from "@/lib/higgsfield";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { uploadBuffer, fetchAsDataUri } from "@/lib/storage";
+import { uploadBuffer } from "@/lib/storage";
 import { VALID_VIBES, type Vibe } from "@/lib/vibes";
 import { randomUUID } from "crypto";
 
@@ -13,6 +14,8 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (req.headers.get("origin") !== req.nextUrl.origin) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  if (!(await getHiggsfieldCredentials())) return NextResponse.json({ error: "Connect your own Higgsfield account. Generation uses your API credits." }, { status: 401 });
   const { id: projectId } = await params;
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -58,9 +61,7 @@ export async function POST(
     }
     characterId = character.id;
     durableImageUrl = character.referenceImageUrl;
-    // TODO(day-1 spike): same data-URI-vs-hosted-URL question as below —
-    // once confirmed, this can skip the re-fetch and pass the hosted URL.
-    imageUrl = await fetchAsDataUri(character.referenceImageUrl);
+    imageUrl = character.referenceImageUrl;
   } else if (file instanceof File) {
     if (file.size > MAX_UPLOAD_BYTES) {
       return NextResponse.json({ error: "Image too large (max 8MB)" }, { status: 400 });
@@ -79,10 +80,7 @@ export async function POST(
       clean,
       "image/jpeg"
     );
-    // TODO(day-1 spike): confirm whether Higgsfield's image_url field
-    // accepts data: URIs directly, or requires a hosted URL — if the
-    // latter, pass `durableImageUrl` instead (it's already hosted).
-    imageUrl = `data:image/jpeg;base64,${clean.toString("base64")}`;
+    imageUrl = durableImageUrl;
   }
 
   // The style lock is what makes clips generated separately, over days,

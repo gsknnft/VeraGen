@@ -65,12 +65,7 @@ export async function GET(
       },
     });
     return NextResponse.json(updated);
-  } catch (err) {
-    console.error("Clip status check failed", err);
-    const updated = await prisma.clip.update({
-      where: { id },
-      data: { status: "failed", errorMessage: "Could not finalize this clip" },
-    });
-    return NextResponse.json(updated, { status: 200 });
+  } catch {
+    return NextResponse.json({ error: "Could not check this job. Reconnect the original Higgsfield account if your session expired; the job is preserved." }, { status: 503 });
   }
 }

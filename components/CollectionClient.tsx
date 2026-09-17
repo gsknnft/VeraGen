@@ -62,7 +62,7 @@ export function CollectionClient({
       const processing = mints.filter((m) => m.status === "processing");
       const updates = await Promise.all(
         processing.map((m) =>
-          fetch(`/api/mints/${m.id}/status`).then((r) => r.json() as Promise<MintData>)
+          fetch(`/api/mints/${m.id}/status`).then((r) => r.ok ? r.json() as Promise<MintData> : m).catch(() => m)
         )
       );
       setMints((prev) => {

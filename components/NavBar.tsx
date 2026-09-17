@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Brand } from "./Brand";
+import { HiggsfieldConnection } from "./HiggsfieldConnection";
 
 export function NavBar({ active }: { active: "studio" | "collections" }) {
   return (
@@ -11,6 +12,7 @@ export function NavBar({ active }: { active: "studio" | "collections" }) {
       <Link href="/collections" aria-current={active === "collections" ? "page" : undefined}>
         Mint Lab
       </Link>
+      <HiggsfieldConnection />
     </nav>
   );
 }

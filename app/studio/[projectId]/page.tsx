@@ -27,12 +27,8 @@ export default async function StudioPage({
     <main className="studio-main">
       <NavBar active="studio" />
       <h1>{project.name || "Untitled project"}</h1>
-      {isMockMode() && (
-        <p className="mock-banner">
-          Mock mode — no Higgsfield key configured, so generations use stock
-          placeholder clips instead of real video. Set HF_API_KEY_ID /
-          HF_API_KEY_SECRET to go live.
-        </p>
+      {(await isMockMode()) && (
+        <p className="mock-banner">Connect your own Higgsfield account to generate. Your API credits pay for generation; VeraGen supplies no credits.</p>
       )}
       <StudioClient
         projectId={project.id}

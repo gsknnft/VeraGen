@@ -62,7 +62,7 @@ export function StudioClient({
       const processing = clips.filter((c) => c.status === "processing");
       const updates = await Promise.all(
         processing.map((c) =>
-          fetch(`/api/clips/${c.id}/status`).then((r) => r.json() as Promise<ClipData>)
+          fetch(`/api/clips/${c.id}/status`).then((r) => r.ok ? r.json() as Promise<ClipData> : c).catch(() => c)
         )
       );
       setClips((prev) => {
