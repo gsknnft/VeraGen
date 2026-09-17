@@ -33,6 +33,11 @@ export default async function CollectionPage({
     <main className="studio-main">
       <NavBar active="collections" />
       <h1>{collection.name}</h1>
+      <p className="mock-banner">
+        Mint Lab — a playground, not a canon product surface. A real drop's
+        mint lifecycle is care- and attestation-gated elsewhere; this is
+        instant and for prototyping only.
+      </p>
       {isMockMode() && (
         <p className="mock-banner">
           Mock mode — no Higgsfield key configured, so mints use stock

@@ -33,7 +33,11 @@ export async function POST(
     );
   }
 
-  const body = (await req.json().catch(() => ({}))) as { mintNumber?: number };
+  const body = (await req.json().catch(() => ({}))) as {
+    mintNumber?: number;
+    walletAddress?: string;
+    txHash?: string;
+  };
   let mintNumber = body.mintNumber;
   if (!mintNumber) {
     const last = await prisma.mint.findFirst({
@@ -53,9 +57,18 @@ export async function POST(
     );
   }
 
-  // Deterministic: this exact (collection, mintNumber) always yields this
-  // exact trait combination — re-running it can't silently reroll rarity.
-  const seed = `${collectionId}:${mintNumber}`;
+  const walletAddress = body.walletAddress?.trim() || undefined;
+  const txHash = body.txHash?.trim() || undefined;
+
+  // Deterministic: this exact seed always yields this exact trait
+  // combination — re-running it can't silently reroll rarity. Folding in a
+  // wallet address / tx hash (when supplied) ties the roll to that specific
+  // mint action instead of just a sequence number, so the platform can't
+  // have picked a different combination for the same slot. This is seed
+  // *input*, not identity — the Mint's own id/mintNumber is what's
+  // authoritative, matching bittyverse's "persistent subject is a
+  // characterId, not a wallet" rule.
+  const seed = [collectionId, mintNumber, walletAddress, txHash].filter(Boolean).join(":");
   const picks = pickTraits(
     collection.traitCategories.map((c) => ({
       id: c.id,
@@ -79,6 +92,9 @@ export async function POST(
       data: {
         collectionId,
         mintNumber,
+        seed,
+        walletAddress,
+        txHash,
         prompt,
         status: "processing",
         higgsfieldRequestId: requestId,

@@ -1,32 +1,40 @@
-// Deterministic, weighted trait selection for generative collections.
-// The same (collectionId, mintNumber) must always pick the same traits —
+// Deterministic, weighted trait selection — mirrors the canonical
+// implementation in @sigilnet/bittyverse's src/trait-roll.ts (rollFrom +
+// pickWeighted + resolveWeightedTraits) rather than inventing a second
+// algorithm. loopface is a standalone repo outside the SigilNet pnpm
+// workspace, so it can't `workspace:*`-depend on that package directly;
+// this is a deliberate copy, not a drift-prone reinvention. If loopface
+// ever moves into the SigilNet monorepo (or @sigilnet/bittyverse gets
+// published), this file should be deleted in favor of the real import —
+// keep the two in sync until then.
+//
+// The same seed must always resolve to the same trait combination —
 // otherwise a mint could be silently "re-rolled" into something rarer
-// after the fact, which defeats the point of a numbered drop.
+// after the fact, which defeats the point of a numbered, provable drop.
 
-function hashSeed(seed: string): number {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) {
-    h = (Math.imul(h, 31) + seed.charCodeAt(i)) | 0;
+/** A uniform value in [0, 1) derived from `seed`. FNV-1a; reproducibility, not cryptographic unpredictability. */
+export function rollFrom(seed: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 16777619) >>> 0;
   }
-  return h >>> 0;
-}
-
-// mulberry32 — small, fast, deterministic PRNG. Good enough for trait
-// selection; not cryptographic, and doesn't need to be.
-function mulberry32(seed: number): () => number {
-  let a = seed;
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+  return hash / 0x100000000;
 }
 
 export interface TraitOptionInput {
   id: string;
   weight: number;
+}
+
+export function pickWeighted<T extends { weight: number }>(entries: readonly T[], roll: number): T {
+  const total = entries.reduce((sum, entry) => sum + entry.weight, 0);
+  let cursor = roll * total;
+  for (const entry of entries) {
+    cursor -= entry.weight;
+    if (cursor < 0) return entry;
+  }
+  return entries[entries.length - 1]!;
 }
 
 export interface TraitCategoryInput {
@@ -35,28 +43,18 @@ export interface TraitCategoryInput {
 }
 
 // Returns categoryId -> chosen optionId. Categories with no options are
-// skipped (nothing to pick).
+// skipped (nothing to pick). Each category gets its own sub-seed so
+// reweighting or adding one category never perturbs another's outcome
+// under the same top-level seed.
 export function pickTraits(
   categories: TraitCategoryInput[],
   seed: string
 ): Record<string, string> {
-  const rand = mulberry32(hashSeed(seed));
   const picks: Record<string, string> = {};
-
   for (const category of categories) {
     if (category.options.length === 0) continue;
-    const totalWeight = category.options.reduce((sum, o) => sum + o.weight, 0);
-    let roll = rand() * totalWeight;
-    let chosen = category.options[category.options.length - 1];
-    for (const option of category.options) {
-      roll -= option.weight;
-      if (roll <= 0) {
-        chosen = option;
-        break;
-      }
-    }
-    picks[category.id] = chosen.id;
+    const roll = rollFrom(`${seed}:${category.id}`);
+    picks[category.id] = pickWeighted(category.options, roll).id;
   }
-
   return picks;
 }

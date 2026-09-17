@@ -160,9 +160,19 @@ model Mint {
   id           String     @id @default(cuid())
   collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   collectionId String
-  // The NFT/drop's mint number — the seed for deterministic trait
-  // selection, not just a display label.
+  // The NFT/drop's mint number — a display label and part of the seed,
+  // not the sole source of it once wallet/tx material is supplied.
   mintNumber   Int
+
+  // The exact seed string trait selection was rolled from — persisted so
+  // the combination is independently re-derivable and auditable, not just
+  // "trust the database." Not the Mint's identity (per ADR-009 in
+  // SigilNet's bittyverse package, that stays a character/mint id, not a
+  // wallet) — this is provenance for *how* the roll was made, not *who
+  // owns it*.
+  seed          String
+  walletAddress String?
+  txHash        String?
 
   prompt              String
   status              MintStatus @default(processing)

@@ -69,24 +69,54 @@ Worth trying before paying for one: the original bounty post
 competitor on their API — replying to that post or DMing them directly
 for bounty-participant API credits is a real option, not just a hope.
 
-## Collections — trait-based generative sets (the "Bittyverse" use case)
+## Mint Lab — trait-based generative sets (`/collections`)
 
-A second system alongside the video studio, for exactly the "each mint
-generates a unique Bitty" case: a **Collection** (`/collections`) defines
-a trait vocabulary once, then generates one unique, *reproducible* asset
-per mint number, instead of a hand-edited timeline.
+**This is explicitly a playground, not the BittyDragons/Bittyverse canon
+product.** SigilNet's `docs/BITTYVERSE_ENTRY_AND_MINT.md` states the real
+rule plainly: *"A Bitty is not minted from a button... care may weight a
+mint only once that care is attested."* A real drop's traits come from a
+care lifecycle gated on a signed attestation, never an instant roll, and
+*"a mint determined by spend"* is explicitly called out as something it
+must never become. What lives here — hit a button, get a weighted-random
+mint immediately — is the opposite of that on purpose: a fast way to
+prototype a trait vocabulary and rarity curve, or generate one-off cards
+for something that's genuinely fine being purchasable per ADR-009's own
+carve-out (see below). It's named "Mint Lab" instead of anything
+collection-specific for exactly this reason, and both `/collections`
+pages carry an explicit disclaimer banner.
 
 - `TraitCategory` (e.g. "Element", "Wings", "Aura") holds `TraitOption`s,
   each an integer `weight` (rarity) and a `promptFragment` — the actual
   text that gets woven into the generation prompt when that option is
   picked ("iridescent scales, faint ember glow along the spine").
-- Minting (`POST /api/collections/[id]/mint`) derives a seed from
-  `${collectionId}:${mintNumber}` and runs it through a seeded PRNG
-  (`lib/traits.ts`) to pick one weighted option per category. This is
-  deterministic on purpose: mint #42 always yields the same trait
-  combination, so a reveal can never be silently re-rolled into
-  something rarer after the fact — the property an actual numbered drop
-  needs that free-text character generation doesn't.
+- Minting (`POST /api/collections/[id]/mint`) builds a seed from
+  `collectionId:mintNumber`, optionally extended with a supplied
+  `walletAddress`/`txHash`, and runs it through `lib/traits.ts` to pick
+  one weighted option per category. **`lib/traits.ts` deliberately mirrors
+  `@sigilnet/bittyverse`'s `src/trait-roll.ts`** (`rollFrom` FNV-1a hash +
+  `pickWeighted` cumulative-weight walk) rather than a second invented
+  algorithm — loopface is a standalone repo outside the SigilNet pnpm
+  workspace, so it can't `workspace:*`-depend on that package directly.
+  If loopface ever moves into the SigilNet monorepo, or `@sigilnet/bittyverse`
+  gets published, delete this file for the real import. Until then the two
+  must be kept in sync by hand — a real, acknowledged tradeoff, not an
+  oversight.
+- Wallet/tx-hash as seed input is deliberate, and deliberately *not*
+  identity: `ADR-009` (SigilNet) is explicit that *"the persistent
+  economic subject is a canonical Bitty `characterId`, not an owner
+  wallet."* Folding a wallet address or tx hash into the seed ties a roll
+  to that specific action (can't be silently redone for a better result)
+  without making the wallet the record's identity — the `Mint`'s own id
+  stays authoritative; `walletAddress`/`txHash` are persisted as
+  provenance on the `seed` used, nothing more.
+- **The "buy an outcome" line has a real carve-out, and it matters where
+  it's drawn.** ADR-009 separates a Bitty's own visual/trait identity
+  (never purchasable) from items *minted to* its ERC-6551 account —
+  Threadbound cards, support items, artifacts. The dragon's own traits
+  must stay care-gated; a random item pack going *into* its inventory is
+  a legitimate, separate economic surface. Mint Lab's mechanism (weighted,
+  seeded, reproducible) is the right primitive for both — it just must
+  never be pointed at a Bitty's own core identity as a paid instant-mint.
 - The collection's own **style lock** (same mechanism as a project's)
   gets appended to every mint's assembled prompt, so the whole set —
   hundreds of mints, generated over weeks — reads as one consistent art
@@ -94,11 +124,17 @@ per mint number, instead of a hand-edited timeline.
 - Each mint currently generates a short **video** clip, reusing the
   entire existing Higgsfield/storage/status-polling pipeline as-is
   (`app/api/mints/[id]/status/route.ts` mirrors the clip status route
-  almost exactly). Worth deciding deliberately, not by default: is a
-  short generated clip per mint the actual product (a "living" NFT), or
-  does BittyDragons want a still image per mint? A still is a smaller
-  follow-up (grab one frame, or add an image-specific Higgsfield
-  endpoint) once that's settled.
+  almost exactly), from a text-only prompt — no image reference yet.
+  **Known gap, called out directly rather than glossed over:** the video
+  is not currently guaranteed to visually match the traits it was rolled
+  from ("one bitty and a video of another" is a real failure mode, not a
+  hypothetical). The fix is to composite the chosen traits into a still
+  image first (art-engine's compositor, or a lighter in-repo one) and
+  pass *that* as the Higgsfield face/image reference for the video call,
+  so the animated clip is provably the same entity as the still. Not
+  built yet. Relatedly: video-per-mint vs. a still image by default with
+  video as a separate unlock (tying back to the free-tier export cap
+  below) is still an open product decision, not defaulted.
 - Non-goals for this pass: linking a Collection's mints back into a
   video-studio timeline (they're separate systems for now), any
   on-chain/mint-contract integration — this only generates the media

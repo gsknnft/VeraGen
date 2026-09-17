@@ -39,7 +39,13 @@ export default function CollectionsPage() {
   return (
     <main>
       <NavBar active="collections" />
-      <h1>Collections</h1>
+      <h1>Mint Lab</h1>
+      <p className="mock-banner">
+        Playground tool, not a canon product surface — instant, weighted,
+        deterministic trait mints for prototyping a collection's look and
+        rarity curve. A real drop (e.g. BittyDragons) has its own care- and
+        attestation-gated mint lifecycle elsewhere; this doesn&apos;t represent it.
+      </p>
       <p className="subtitle">
         Trait-based generative sets — define traits once, mint unique,
         reproducible assets one at a time.
@@ -48,7 +54,7 @@ export default function CollectionsPage() {
       <form className="generate-panel" onSubmit={handleCreate}>
         <input
           type="text"
-          placeholder="e.g. BittyDragons"
+          placeholder="e.g. dev-test-set"
           value={name}
           onChange={(e) => setName(e.target.value)}
           style={{

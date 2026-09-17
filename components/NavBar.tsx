@@ -7,7 +7,7 @@ export function NavBar({ active }: { active: "studio" | "collections" }) {
         Studio
       </Link>
       <Link href="/collections" style={{ color: active === "collections" ? "#f2f2f2" : "#777" }}>
-        Collections
+        Mint Lab
       </Link>
     </nav>
   );

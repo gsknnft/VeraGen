@@ -50,6 +50,8 @@ export function CollectionClient({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [minting, setMinting] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
+  const [walletAddress, setWalletAddress] = useState("");
+  const [txHash, setTxHash] = useState("");
   const styleLockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasProcessing = mints.some((m) => m.status === "processing");
@@ -135,7 +137,14 @@ export function CollectionClient({
     setMinting(true);
     setMintError(null);
     try {
-      const res = await fetch(`/api/collections/${collectionId}/mint`, { method: "POST" });
+      const res = await fetch(`/api/collections/${collectionId}/mint`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          walletAddress: walletAddress.trim() || undefined,
+          txHash: txHash.trim() || undefined,
+        }),
+      });
       const data = await res.json();
       if (!res.ok) {
         setMintError(data.error ?? "Mint failed");
@@ -191,6 +200,31 @@ export function CollectionClient({
       </section>
 
       <section>
+        <p className="subtitle">
+          Optional: fold a wallet address / tx hash into the mint seed, so
+          the roll is tied to that specific action instead of just a
+          sequence number.
+        </p>
+        <div className="trim-row">
+          <label>
+            Wallet address
+            <input
+              type="text"
+              placeholder="0x…"
+              value={walletAddress}
+              onChange={(e) => setWalletAddress(e.target.value)}
+            />
+          </label>
+          <label>
+            Tx hash
+            <input
+              type="text"
+              placeholder="0x…"
+              value={txHash}
+              onChange={(e) => setTxHash(e.target.value)}
+            />
+          </label>
+        </div>
         <div className="export-row">
           <button className="primary" onClick={handleMint} disabled={minting || !canMint}>
             {minting ? "Minting…" : "Generate next mint"}
