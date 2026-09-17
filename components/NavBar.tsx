@@ -1,12 +1,14 @@
 import Link from "next/link";
+import { Brand } from "./Brand";
 
 export function NavBar({ active }: { active: "studio" | "collections" }) {
   return (
-    <nav style={{ display: "flex", gap: 16, fontSize: "0.85rem" }}>
-      <Link href="/" style={{ color: active === "studio" ? "#f2f2f2" : "#777" }}>
+    <nav className="app-nav" aria-label="Studio navigation">
+      <Brand />
+      <Link href="/studio" aria-current={active === "studio" ? "page" : undefined}>
         Studio
       </Link>
-      <Link href="/collections" style={{ color: active === "collections" ? "#f2f2f2" : "#777" }}>
+      <Link href="/collections" aria-current={active === "collections" ? "page" : undefined}>
         Mint Lab
       </Link>
     </nav>

@@ -1,4 +1,4 @@
-# loopface — scope
+# VeraGen — scope
 
 ## The bet
 

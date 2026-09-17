@@ -26,7 +26,7 @@ export default async function StudioPage({
   return (
     <main className="studio-main">
       <NavBar active="studio" />
-      <h1>loopface studio</h1>
+      <h1>{project.name || "Untitled project"}</h1>
       {isMockMode() && (
         <p className="mock-banner">
           Mock mode — no Higgsfield key configured, so generations use stock

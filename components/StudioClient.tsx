@@ -224,7 +224,7 @@ export function StudioClient({
 
   return (
     <div className="studio">
-      <PreviewPlayer clips={completedClips} brand={brand} projectName={projectName} />
+      <PreviewPlayer clips={completedClips} brand={brand} projectName={projectName} aspect={aspect} />
 
       <Timeline
         clips={clips}
@@ -271,7 +271,7 @@ export function StudioClient({
       />
 
       <div className="export-row">
-        <select value={aspect} onChange={(e) => setAspect(e.target.value as Aspect)}>
+        <select aria-label="Preview and export format" value={aspect} onChange={(e) => setAspect(e.target.value as Aspect)}>
           {Object.keys(ASPECTS).map((a) => (
             <option key={a} value={a}>
               {a} {a === "9:16" ? "(Reels/TikTok)" : a === "1:1" ? "(Feed)" : "(YouTube)"}

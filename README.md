@@ -1,4 +1,21 @@
-# loopface
+[![NPM Version](https://img.shields.io/npm/v/@gsknnft/loopface.svg?style=flat-square)](https://www.npmjs.com/package/@gsknnft/loopface)
+[![Node Version](https://img.shields.io/node/v/@gsknnft/loopface.svg?style=flat-square)](https://nodejs.org)
+
+> **Current version: 0.3.0 (published)**
+> **Release lane:** prebuilt-native distribution + deterministic fallback (`prebuilt -> bindings -> TS`).
+
+<p align="center">
+  <h1 style="font-size:2.5rem; font-family:Segoe UI, Arial, sans-serif; margin-bottom:0.2em;">
+    @gsknnft/veragen
+  </h1>
+</p>
+
+<p align="center">
+  <img src="/public/brand/source/veragen-logo-v1.png" alt="VeraGen Logo" width="180" />
+</p>
+
+
+# VeraGen
 
 A small video studio built on the [Higgsfield API](https://docs.higgsfield.ai/docs):
 prompt in, clip out, arrange clips on a timeline, export a finished video.
