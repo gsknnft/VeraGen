@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="/public/brand/source/veragen-logo-v1.png" alt="VeraGen Logo" width="180" />
+  <img src="/public/brand/source/veragen-share-v1.png" alt="VeraGen Hero" width="180" />
 </p>
 
 
