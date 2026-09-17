@@ -5,31 +5,54 @@ import { GeneratePanel } from "./GeneratePanel";
 import { Timeline, type ClipData } from "./Timeline";
 import { PreviewPlayer } from "./PreviewPlayer";
 import { CharacterPanel, type CharacterData } from "./CharacterPanel";
-import type { TimelineClip } from "@/remotion/durationUtils";
+import { BrandKitPanel } from "./BrandKitPanel";
+import {
+  ASPECTS,
+  DEFAULT_ASPECT,
+  type Aspect,
+  type BrandKit,
+  type BrandTemplate,
+  type TimelineClip,
+} from "@/remotion/durationUtils";
 
 const POLL_INTERVAL_MS = 3000;
 const STYLE_LOCK_DEBOUNCE_MS = 600;
+const CAPTION_DEBOUNCE_MS = 500;
 
 export function StudioClient({
   projectId,
+  projectName,
   initialClips,
   initialCharacters,
   initialStyleLock,
+  initialBrandLogoUrl,
+  initialCtaText,
+  initialTemplate,
 }: {
   projectId: string;
+  projectName: string;
   initialClips: ClipData[];
   initialCharacters: CharacterData[];
   initialStyleLock: string | null;
+  initialBrandLogoUrl: string | null;
+  initialCtaText: string | null;
+  initialTemplate: BrandTemplate;
 }) {
   const [clips, setClips] = useState<ClipData[]>(initialClips);
   const [characters, setCharacters] = useState<CharacterData[]>(initialCharacters);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [styleLock, setStyleLock] = useState(initialStyleLock ?? "");
+  const [brandLogoUrl, setBrandLogoUrl] = useState(initialBrandLogoUrl);
+  const [ctaText, setCtaText] = useState(initialCtaText ?? "");
+  const [template, setTemplate] = useState<BrandTemplate>(initialTemplate);
+  const [aspect, setAspect] = useState<Aspect>(DEFAULT_ASPECT);
   const [exporting, setExporting] = useState(false);
   const [exportUrl, setExportUrl] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const trimTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const captionTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const styleLockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ctaTextTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasProcessing = clips.some((c) => c.status === "processing");
 
@@ -105,6 +128,23 @@ export function StudioClient({
     }).catch(() => {});
   }
 
+  function handleCaptionChange(clipId: string, caption: string) {
+    setClips((prev) => prev.map((c) => (c.id === clipId ? { ...c, caption } : c)));
+
+    const existing = captionTimers.current.get(clipId);
+    if (existing) clearTimeout(existing);
+    captionTimers.current.set(
+      clipId,
+      setTimeout(() => {
+        fetch(`/api/clips/${clipId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ caption }),
+        }).catch(() => {});
+      }, CAPTION_DEBOUNCE_MS)
+    );
+  }
+
   function handleDelete(clipId: string) {
     setClips((prev) => prev.filter((c) => c.id !== clipId));
     fetch(`/api/clips/${clipId}`, { method: "DELETE" }).catch(() => {});
@@ -122,12 +162,37 @@ export function StudioClient({
     }, STYLE_LOCK_DEBOUNCE_MS);
   }
 
+  function handleCtaTextChange(value: string) {
+    setCtaText(value);
+    if (ctaTextTimer.current) clearTimeout(ctaTextTimer.current);
+    ctaTextTimer.current = setTimeout(() => {
+      fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ctaText: value || null }),
+      }).catch(() => {});
+    }, STYLE_LOCK_DEBOUNCE_MS);
+  }
+
+  function handleTemplateChange(value: BrandTemplate) {
+    setTemplate(value);
+    fetch(`/api/projects/${projectId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ template: value }),
+    }).catch(() => {});
+  }
+
   async function handleExport() {
     setExporting(true);
     setExportError(null);
     setExportUrl(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}/export`, { method: "POST" });
+      const res = await fetch(`/api/projects/${projectId}/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aspect }),
+      });
       const data = await res.json();
       if (!res.ok) {
         setExportError(data.error ?? "Export failed");
@@ -149,20 +214,24 @@ export function StudioClient({
       trimStart: c.trimStart,
       trimEnd: c.trimEnd ?? c.durationSeconds ?? c.trimStart,
       transitionIn: c.transitionIn,
+      caption: c.caption,
     }));
+
+  const brand: BrandKit = { logoUrl: brandLogoUrl, ctaText, template };
 
   const selectedCharacterName =
     characters.find((c) => c.id === selectedCharacterId)?.name ?? null;
 
   return (
     <div className="studio">
-      <PreviewPlayer clips={completedClips} />
+      <PreviewPlayer clips={completedClips} brand={brand} projectName={projectName} />
 
       <Timeline
         clips={clips}
         onReorder={handleReorder}
         onTrimChange={handleTrimChange}
         onTransitionChange={handleTransitionChange}
+        onCaptionChange={handleCaptionChange}
         onDelete={handleDelete}
       />
 
@@ -191,7 +260,24 @@ export function StudioClient({
         selectedCharacterName={selectedCharacterName}
       />
 
+      <BrandKitPanel
+        projectId={projectId}
+        logoUrl={brandLogoUrl}
+        ctaText={ctaText}
+        template={template}
+        onLogoUploaded={setBrandLogoUrl}
+        onCtaTextChange={handleCtaTextChange}
+        onTemplateChange={handleTemplateChange}
+      />
+
       <div className="export-row">
+        <select value={aspect} onChange={(e) => setAspect(e.target.value as Aspect)}>
+          {Object.keys(ASPECTS).map((a) => (
+            <option key={a} value={a}>
+              {a} {a === "9:16" ? "(Reels/TikTok)" : a === "1:1" ? "(Feed)" : "(YouTube)"}
+            </option>
+          ))}
+        </select>
         <button className="primary" onClick={handleExport} disabled={exporting || completedClips.length === 0}>
           {exporting ? "Rendering…" : "Export video"}
         </button>

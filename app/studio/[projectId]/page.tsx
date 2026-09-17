@@ -36,9 +36,13 @@ export default async function StudioPage({
       )}
       <StudioClient
         projectId={project.id}
+        projectName={project.name}
         initialClips={project.clips}
         initialCharacters={project.characters}
         initialStyleLock={project.styleLock}
+        initialBrandLogoUrl={project.brandLogoUrl}
+        initialCtaText={project.ctaText}
+        initialTemplate={project.template}
       />
     </main>
   );

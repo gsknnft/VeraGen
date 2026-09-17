@@ -26,6 +26,7 @@ export interface ClipData {
   trimStart: number;
   trimEnd: number | null;
   transitionIn: "cut" | "crossfade";
+  caption: string | null;
   errorMessage: string | null;
 }
 
@@ -34,6 +35,7 @@ interface TimelineProps {
   onReorder: (orderedIds: string[]) => void;
   onTrimChange: (clipId: string, trimStart: number, trimEnd: number) => void;
   onTransitionChange: (clipId: string, transitionIn: "cut" | "crossfade") => void;
+  onCaptionChange: (clipId: string, caption: string) => void;
   onDelete: (clipId: string) => void;
 }
 
@@ -42,6 +44,7 @@ export function Timeline({
   onReorder,
   onTrimChange,
   onTransitionChange,
+  onCaptionChange,
   onDelete,
 }: TimelineProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
@@ -69,6 +72,7 @@ export function Timeline({
               index={i}
               onTrimChange={onTrimChange}
               onTransitionChange={onTransitionChange}
+              onCaptionChange={onCaptionChange}
               onDelete={onDelete}
             />
           ))}
@@ -83,12 +87,14 @@ function TimelineItem({
   index,
   onTrimChange,
   onTransitionChange,
+  onCaptionChange,
   onDelete,
 }: {
   clip: ClipData;
   index: number;
   onTrimChange: TimelineProps["onTrimChange"];
   onTransitionChange: TimelineProps["onTransitionChange"];
+  onCaptionChange: TimelineProps["onCaptionChange"];
   onDelete: TimelineProps["onDelete"];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -153,6 +159,14 @@ function TimelineItem({
               <option value="crossfade">Crossfade</option>
             </select>
           )}
+
+          <input
+            type="text"
+            placeholder="Caption (optional)"
+            defaultValue={clip.caption ?? ""}
+            onChange={(e) => onCaptionChange(clip.id, e.target.value)}
+            onPointerDown={(e) => e.stopPropagation()}
+          />
         </>
       )}
 

@@ -7,6 +7,7 @@ interface PatchBody {
   trimStart?: number;
   trimEnd?: number;
   transitionIn?: TransitionType;
+  caption?: string | null;
 }
 
 export async function PATCH(
@@ -23,6 +24,7 @@ export async function PATCH(
   if (body.transitionIn === "cut" || body.transitionIn === "crossfade") {
     data.transitionIn = body.transitionIn;
   }
+  if ("caption" in body) data.caption = body.caption || null;
 
   const clip = await prisma.clip.update({ where: { id }, data });
   return NextResponse.json(clip);

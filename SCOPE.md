@@ -45,9 +45,52 @@ v1):
 Non-goals for v1: accounts/login, characters/style-locks shared *across*
 projects (a project is the current unit of "world"; promoting Character
 to a cross-project entity is natural phase-2 once one project's version
-is proven), multi-project management UI, audio tracks, burned-in
-captions, multi-track compositing (picture-in-picture, layered video) —
-single video track only.
+is proven), multi-project management UI, audio tracks, multi-track
+compositing (picture-in-picture, layered video) — single video track
+only.
+
+## Brand kit, templates, multi-aspect export, captions
+
+The business-facing layer — what turns an edit into something that reads
+as a real post instead of a demo, all as Remotion sequences wrapped
+around the existing clip timeline, no new services:
+
+- **Brand kit** (`Project.brandLogoUrl` / `ctaText` / `template`) — a
+  logo uploaded once (`POST /api/projects/[id]/brand-logo`, stripped and
+  normalized through `sharp` same as any other image) shows as a small
+  corner watermark for the whole video (`remotion/BrandWatermark.tsx`),
+  and an end-card CTA line (`remotion/TitleCard.tsx`, reused for both
+  intro and outro with different props) closes it out.
+- **Templates** (`BrandTemplate`: `none` / `teaser` / `productReveal` /
+  `announcement`) decide which cards wrap the clips, not the pacing of
+  the clips themselves (that's still the user's own trim/transition
+  choices): `none` adds nothing, `teaser` adds only a CTA outro,
+  `productReveal` adds a logo intro + CTA outro, `announcement` adds a
+  headline intro (the project's own name) + CTA outro.
+  `remotion/durationUtils.ts`'s `introFrames`/`outroFrames` are the only
+  place template → card-presence logic lives, and `Root.tsx`'s
+  `calculateMetadata`, `PreviewPlayer`, and the export route all compute
+  total duration through the same `totalDurationInFramesWithBrand` so
+  none of the three can silently disagree on how long the video actually
+  is — the same discipline the crossfade math already had.
+- **Multi-aspect export** — the editor/preview always works in 9:16;
+  export offers `9:16` / `1:1` / `16:9` (`ASPECTS` in durationUtils.ts),
+  resolved through `Root.tsx`'s `calculateMetadata` returning a
+  `width`/`height` matching the requested aspect. Every clip renders
+  through `object-fit: cover` inside an `AbsoluteFill`, so re-exporting at
+  a different aspect crops instead of stretching or letterboxing — no
+  re-editing needed per platform.
+- **Captions** (`Clip.caption`, optional per clip) — a lower-third text
+  overlay burned into that clip's segment, both in the live preview and
+  the final export. Deliberately not a subtitle track or auto-transcription
+  — one line, whatever the user types, same mechanism a title card uses.
+- **Not built/verified**: this sandbox's network policy blocks Remotion's
+  own headless-Chromium download (same wall hit and documented earlier
+  building the BittyDragons placeholder clips), so none of this could be
+  render-verified end-to-end here — typechecks and builds clean, and the
+  duration arithmetic (`Series` children summing to exactly what
+  `calculateMetadata` declares) was checked by hand, but the first real
+  export attempt is the actual test.
 
 ## Mock mode — building with $0 spent and no Higgsfield key yet
 

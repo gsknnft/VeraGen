@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import type { BrandTemplate } from "@prisma/client";
+
+const VALID_TEMPLATES: BrandTemplate[] = ["none", "teaser", "productReveal", "announcement"];
 
 export async function GET(
   _req: NextRequest,
@@ -25,11 +28,19 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const body = (await req.json()) as { styleLock?: string };
+  const body = (await req.json()) as {
+    styleLock?: string;
+    ctaText?: string;
+    template?: string;
+  };
 
-  const project = await prisma.project.update({
-    where: { id },
-    data: { styleLock: body.styleLock ?? null },
-  });
+  const data: { styleLock?: string | null; ctaText?: string | null; template?: BrandTemplate } = {};
+  if ("styleLock" in body) data.styleLock = body.styleLock || null;
+  if ("ctaText" in body) data.ctaText = body.ctaText || null;
+  if (typeof body.template === "string" && VALID_TEMPLATES.includes(body.template as BrandTemplate)) {
+    data.template = body.template as BrandTemplate;
+  }
+
+  const project = await prisma.project.update({ where: { id }, data });
   return NextResponse.json(project);
 }

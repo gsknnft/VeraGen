@@ -1,7 +1,14 @@
 import React from "react";
 import { Composition } from "remotion";
 import { StudioComposition, type StudioCompositionProps } from "./Composition";
-import { FPS, VIDEO_WIDTH, VIDEO_HEIGHT, totalDurationInFrames } from "./durationUtils";
+import {
+  ASPECTS,
+  DEFAULT_ASPECT,
+  FPS,
+  VIDEO_WIDTH,
+  VIDEO_HEIGHT,
+  totalDurationInFramesWithBrand,
+} from "./durationUtils";
 
 // Remotion's `Composition` is generic over a zod schema + props type, and
 // inference falls back to `Record<string, unknown>` when a schema isn't
@@ -17,7 +24,7 @@ const TypedComposition = Composition as unknown as React.FC<{
   defaultProps: StudioCompositionProps;
   calculateMetadata: (options: {
     props: StudioCompositionProps;
-  }) => Promise<{ durationInFrames: number }>;
+  }) => Promise<{ durationInFrames: number; width: number; height: number }>;
 }>;
 
 export const RemotionRoot: React.FC = () => {
@@ -29,10 +36,19 @@ export const RemotionRoot: React.FC = () => {
       width={VIDEO_WIDTH}
       height={VIDEO_HEIGHT}
       durationInFrames={FPS}
-      defaultProps={{ clips: [] }}
-      calculateMetadata={async ({ props }) => ({
-        durationInFrames: totalDurationInFrames(props.clips),
-      })}
+      defaultProps={{
+        clips: [],
+        brand: { template: "none" },
+        projectName: "",
+      }}
+      calculateMetadata={async ({ props }) => {
+        const { width, height } = ASPECTS[props.aspect ?? DEFAULT_ASPECT];
+        return {
+          durationInFrames: totalDurationInFramesWithBrand(props.clips, props.brand),
+          width,
+          height,
+        };
+      }}
     />
   );
 };

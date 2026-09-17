@@ -11,6 +11,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum BrandTemplate {
+  none
+  teaser
+  productReveal
+  announcement
+}
+
 model Project {
   id      String  @id @default(cuid())
   name    String  @default("Untitled project")
@@ -19,6 +26,17 @@ model Project {
   // mechanism that makes a set of separately-generated clips read as one
   // world instead of unrelated demos.
   styleLock  String?
+
+  // Brand kit — what turns an edit into something a business would post.
+  // Durable copy of an uploaded logo; shown as a small corner watermark
+  // for the whole video whenever set.
+  brandLogoUrl String?
+  // End-card text ("Follow @yourhandle", a link) shown on the outro card.
+  ctaText      String?
+  // Which intro/outro cards wrap the clips — see remotion/durationUtils.ts
+  // for exactly what each template adds.
+  template     BrandTemplate @default(none)
+
   clips      Clip[]
   characters Character[]
   exports    Export[]
@@ -65,6 +83,9 @@ model Clip {
   prompt         String
   vibe           String
   sourceImageUrl String?
+  // Optional lower-third text burned into this clip's segment on export
+  // and in the live preview — a caption, not a subtitle track.
+  caption        String?
 
   // Set when this clip was generated from a saved Character rather than
   // a one-off upload.
@@ -100,6 +121,8 @@ model Export {
   projectId       String
   videoUrl        String
   durationSeconds Float
+  // "9:16" | "1:1" | "16:9" — see remotion/durationUtils.ts's ASPECTS.
+  aspect          String   @default("9:16")
   createdAt       DateTime @default(now())
 }
 

@@ -6,12 +6,21 @@ import {
   FPS,
   VIDEO_WIDTH,
   VIDEO_HEIGHT,
-  totalDurationInFrames,
+  totalDurationInFramesWithBrand,
+  type BrandKit,
   type TimelineClip,
 } from "@/remotion/durationUtils";
 
-export function PreviewPlayer({ clips }: { clips: TimelineClip[] }) {
-  if (clips.length === 0) {
+export function PreviewPlayer({
+  clips,
+  brand,
+  projectName,
+}: {
+  clips: TimelineClip[];
+  brand: BrandKit;
+  projectName: string;
+}) {
+  if (clips.length === 0 && brand.template === "none") {
     return (
       <div className="preview-empty">
         <span>Generate a clip to see it here</span>
@@ -22,8 +31,8 @@ export function PreviewPlayer({ clips }: { clips: TimelineClip[] }) {
   return (
     <Player
       component={StudioComposition}
-      inputProps={{ clips }}
-      durationInFrames={totalDurationInFrames(clips)}
+      inputProps={{ clips, brand, projectName }}
+      durationInFrames={totalDurationInFramesWithBrand(clips, brand)}
       fps={FPS}
       compositionWidth={VIDEO_WIDTH}
       compositionHeight={VIDEO_HEIGHT}
