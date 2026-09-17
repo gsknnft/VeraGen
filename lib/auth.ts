@@ -1,4 +1,7 @@
-import "server-only";
+// import "server-only";
+if (process.env.NEXT_RUNTIME) {
+  require("server-only");
+}
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./db";

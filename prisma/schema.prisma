@@ -19,13 +19,13 @@ enum BrandTemplate {
 }
 
 model Project {
-  id      String  @id @default(cuid())
-  name    String  @default("Untitled project")
+  id        String  @id @default(cuid())
+  name      String  @default("Untitled project")
   // Free-text style tokens auto-appended to every clip's prompt in this
   // project ("shot on 35mm, teal-and-orange grade, neon rim light") — the
   // mechanism that makes a set of separately-generated clips read as one
   // world instead of unrelated demos.
-  styleLock  String?
+  styleLock String?
 
   // Brand kit — what turns an edit into something a business would post.
   // Durable copy of an uploaded logo; shown as a small corner watermark
@@ -45,8 +45,8 @@ model Project {
 }
 
 model Character {
-  id                String  @id @default(cuid())
-  project           Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                String   @id @default(cuid())
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId         String
   name              String
   // Durable copy of the reference face photo — generations reuse this
@@ -102,7 +102,7 @@ model Clip {
   durationSeconds Float?
 
   // Trim window into the source clip, in seconds.
-  trimStart Float @default(0)
+  trimStart Float  @default(0)
   trimEnd   Float?
 
   // How this clip transitions in from the previous one on the timeline.
@@ -147,11 +147,11 @@ model Collection {
 }
 
 model TraitCategory {
-  id           String       @id @default(cuid())
-  collection   Collection   @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  id           String        @id @default(cuid())
+  collection   Collection    @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   collectionId String
   name         String
-  sortOrder    Int          @default(0)
+  sortOrder    Int           @default(0)
   options      TraitOption[]
 
   @@index([collectionId])
@@ -219,4 +219,77 @@ model MintTrait {
   traitOptionId String
 
   @@unique([mintId, traitOptionId])
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model RateLimit {
+  id          String @id
+  key         String
+  count       Int
+  lastRequest BigInt
+
+  @@unique([key])
+  @@map("rateLimit")
 }
