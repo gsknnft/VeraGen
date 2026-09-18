@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { VIBE_OPTIONS, type Vibe } from "@/lib/vibes";
 
 interface GeneratePanelProps {
@@ -24,6 +24,7 @@ export function GeneratePanel({
   const [error, setError] = useState<string | null>(null);
   const attempt = useRef<string | null>(null);
   const sending = useRef(false);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function applyVibe(id: Vibe, presetPrompt: string) {

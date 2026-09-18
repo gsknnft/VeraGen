@@ -10,7 +10,6 @@ export const POST = withAccess("collection", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }, session
 ) => {
-  if (req.headers.get("origin") !== req.nextUrl.origin) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   if (!(await getHiggsfieldCredentials())) return NextResponse.json({ error: "Connect your own Higgsfield account. Generation uses your API credits." }, { status: 401 });
   const { id: collectionId } = await params;
 

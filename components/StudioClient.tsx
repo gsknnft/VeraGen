@@ -49,6 +49,8 @@ export function StudioClient({
   const [aspect, setAspect] = useState<Aspect>(DEFAULT_ASPECT);
   const [exporting, setExporting] = useState(false);
   const [exportUrl, setExportUrl] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [pollError, setPollError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const exportAbort = useRef<AbortController | null>(null);
@@ -68,7 +70,7 @@ export function StudioClient({
       const processing = clips.filter((c) => c.status === "processing");
       const updates = await Promise.all(
         processing.map((c) =>
-          fetch(`/api/clips/${c.id}/status`).then((r) => r.ok ? r.json() as Promise<ClipData> : c).catch(() => c)
+          fetch(`/api/clips/${c.id}/status`).then((r) => r.ok ? r.json() as Promise<ClipData> : (setPollError("Generation status is unavailable. Check your account connection and try refreshing."), c)).catch(() => c)
         )
       );
       setClips((prev) => {
@@ -102,7 +104,7 @@ export function StudioClient({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ order: index }),
-      }).catch(() => {});
+      }).then(response => { if (!response.ok) throw new Error(); }).catch(() => setSaveError("Some edits could not be saved. Keep this tab open; browser export still uses your current edit."));
     });
   }
 
@@ -120,7 +122,7 @@ export function StudioClient({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ trimStart, trimEnd }),
-        }).catch(() => {});
+        }).then(response => { if (!response.ok) throw new Error(); }).catch(() => setSaveError("Some edits could not be saved. Keep this tab open; browser export still uses your current edit."));
       }, 400)
     );
   }
@@ -131,7 +133,7 @@ export function StudioClient({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ transitionIn }),
-    }).catch(() => {});
+    }).then(response => { if (!response.ok) throw new Error(); }).catch(() => setSaveError("Some edits could not be saved. Keep this tab open; browser export still uses your current edit."));
   }
 
   function handleCaptionChange(clipId: string, caption: string) {
@@ -146,14 +148,14 @@ export function StudioClient({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ caption }),
-        }).catch(() => {});
+        }).then(response => { if (!response.ok) throw new Error(); }).catch(() => setSaveError("Some edits could not be saved. Keep this tab open; browser export still uses your current edit."));
       }, CAPTION_DEBOUNCE_MS)
     );
   }
 
   function handleDelete(clipId: string) {
     setClips((prev) => prev.filter((c) => c.id !== clipId));
-    fetch(`/api/clips/${clipId}`, { method: "DELETE" }).catch(() => {});
+    fetch(`/api/clips/${clipId}`, { method: "DELETE" }).then(response => { if (!response.ok) throw new Error(); }).catch(() => setSaveError("Some edits could not be saved. Keep this tab open; browser export still uses your current edit."));
   }
 
   function handleStyleLockChange(value: string) {
@@ -164,7 +166,7 @@ export function StudioClient({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ styleLock: value || null }),
-      }).catch(() => {});
+      }).then(response => { if (!response.ok) throw new Error(); }).catch(() => setSaveError("Some edits could not be saved. Keep this tab open; browser export still uses your current edit."));
     }, STYLE_LOCK_DEBOUNCE_MS);
   }
 
@@ -176,7 +178,7 @@ export function StudioClient({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ctaText: value || null }),
-      }).catch(() => {});
+      }).then(response => { if (!response.ok) throw new Error(); }).catch(() => setSaveError("Some edits could not be saved. Keep this tab open; browser export still uses your current edit."));
     }, STYLE_LOCK_DEBOUNCE_MS);
   }
 
@@ -186,7 +188,7 @@ export function StudioClient({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ template: value }),
-    }).catch(() => {});
+    }).then(response => { if (!response.ok) throw new Error(); }).catch(() => setSaveError("Some edits could not be saved. Keep this tab open; browser export still uses your current edit."));
   }
 
   async function handleExport() {
@@ -229,6 +231,8 @@ export function StudioClient({
 
   return (
     <div className="studio">
+      {saveError && <p role="alert" className="error">{saveError}</p>}
+      {pollError && <p role="status" className="error">{pollError}</p>}
       <PreviewPlayer clips={completedClips} brand={brand} projectName={projectName} aspect={aspect} />
 
       <Timeline

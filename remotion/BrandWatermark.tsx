@@ -19,7 +19,6 @@ export const BrandWatermark: React.FC<BrandWatermarkProps> = ({ logoUrl }) => (
       height: 96,
       objectFit: "contain",
       opacity: 0.85,
-      filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.5))",
     }}
   />
 );

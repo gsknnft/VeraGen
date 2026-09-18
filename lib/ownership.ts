@@ -1,8 +1,7 @@
 /**
  * Every kind here must be a real Prisma model — `withAccess` indexes
  * `prisma[kind]` directly, so a phantom kind is a runtime crash rather than a
- * type error. `mediaAsset` was listed and has no model; removed rather than
- * left as a trap.
+ * type error. Media records carry the same owner boundary as projects.
  *
  * `Project.ownerId` and `Collection.ownerId` are nullable while existing rows
  * are backfilled. A null owner matches no session, so an un-backfilled row is
