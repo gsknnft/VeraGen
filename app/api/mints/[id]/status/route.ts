@@ -3,13 +3,14 @@ import { getVideoMetadata } from "@remotion/renderer";
 import { prisma } from "@/lib/db";
 import { getJobStatus } from "@/lib/higgsfield";
 import { persistRemoteVideo } from "@/lib/storage";
+import { withAccess } from "@/lib/access";
 
 export const runtime = "nodejs";
 
-export async function GET(
+export const GET = withAccess("mint", async (
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
 
   const mint = await prisma.mint.findUnique({
@@ -60,4 +61,4 @@ export async function GET(
   } catch {
     return NextResponse.json({ error: "Could not check this job. Reconnect the original Higgsfield account if your session expired; the job is preserved." }, { status: 503 });
   }
-}
+});

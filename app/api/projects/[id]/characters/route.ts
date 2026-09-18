@@ -3,13 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { prisma } from "@/lib/db";
 import { uploadBuffer } from "@/lib/storage";
+import { withAccess } from "@/lib/access";
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
-export async function POST(
+export const POST = withAccess("project", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id: projectId } = await params;
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
@@ -55,4 +56,4 @@ export async function POST(
   });
 
   return NextResponse.json(character);
-}
+});

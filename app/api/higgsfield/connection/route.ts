@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CREDENTIAL_COOKIE, getHiggsfieldCredentials } from "@/lib/higgsfield-credentials";
 import { sealCredentials, SESSION_SECONDS } from "@/lib/higgsfield-session";
+import { withAccess } from "@/lib/access";
 
 export const runtime = "nodejs";
-export async function GET() {
+export const GET = withAccess(null, async () => {
   return NextResponse.json({ connected: Boolean(await getHiggsfieldCredentials()) }, { headers: { "Cache-Control": "no-store" } });
-}
-export async function POST(request: NextRequest) {
+});
+export const POST = withAccess(null, async (request: NextRequest) => {
   if (request.headers.get("origin") !== request.nextUrl.origin) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   if (Number(request.headers.get("content-length")) > 4096) return NextResponse.json({ error: "Request too large" }, { status: 413 });
   let body;
@@ -18,10 +19,10 @@ export async function POST(request: NextRequest) {
     response.cookies.set(CREDENTIAL_COOKIE, value, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: SESSION_SECONDS });
     return response;
   } catch { return NextResponse.json({ error: "Account connections are not configured on this server yet." }, { status: 503 }); }
-}
-export async function DELETE(request: NextRequest) {
+});
+export const DELETE = withAccess(null, async (request: NextRequest) => {
   if (request.headers.get("origin") !== request.nextUrl.origin) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   const response = NextResponse.json({ connected: false });
   response.cookies.set(CREDENTIAL_COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 0 });
   return response;
-}
+});

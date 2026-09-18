@@ -7,13 +7,14 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { uploadBuffer } from "@/lib/storage";
 import { VALID_VIBES, type Vibe } from "@/lib/vibes";
 import { randomUUID } from "crypto";
+import { withAccess } from "@/lib/access";
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
-export async function POST(
+export const POST = withAccess("project", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   if (req.headers.get("origin") !== req.nextUrl.origin) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   if (!(await getHiggsfieldCredentials())) return NextResponse.json({ error: "Connect your own Higgsfield account. Generation uses your API credits." }, { status: 401 });
   const { id: projectId } = await params;
@@ -115,4 +116,4 @@ export async function POST(
       { status: 502 }
     );
   }
-}
+});

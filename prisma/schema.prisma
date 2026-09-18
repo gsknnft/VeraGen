@@ -37,11 +37,20 @@ model Project {
   // for exactly what each template adds.
   template     BrandTemplate @default(none)
 
+  // What `ownerFilter` matches on. Nullable so the migration can land on a
+  // database with existing rows; `withAccess` treats null as unowned and no
+  // session matches it, so pre-existing rows become invisible rather than
+  // public. Backfill, then tighten to required.
+  ownerId    String?
+  owner      User?       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
   clips      Clip[]
   characters Character[]
   exports    Export[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
+
+  @@index([ownerId])
 }
 
 model Character {
@@ -140,10 +149,18 @@ model Collection {
   // Same mechanism as Project.styleLock — appended to every mint's
   // assembled prompt so the whole set reads as one world.
   styleLock       String?
+  // What `ownerFilter` matches on. Nullable so the migration can land on a
+  // database with existing rows; `withAccess` treats null as unowned and no
+  // session matches it, so pre-existing rows become invisible rather than
+  // public. Backfill, then tighten to required.
+  ownerId         String?
+  owner           User?           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   traitCategories TraitCategory[]
   mints           Mint[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+
+  @@index([ownerId])
 }
 
 model TraitCategory {
@@ -231,6 +248,8 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  projects      Project[]
+  collections   Collection[]
 
   @@unique([email])
   @@map("user")

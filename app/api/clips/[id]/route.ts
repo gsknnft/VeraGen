@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import type { TransitionType } from "@prisma/client";
+import { withAccess } from "@/lib/access";
 
 interface PatchBody {
   order?: number;
@@ -10,10 +11,10 @@ interface PatchBody {
   caption?: string | null;
 }
 
-export async function PATCH(
+export const PATCH = withAccess("clip", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   const body = (await req.json()) as PatchBody;
 
@@ -28,13 +29,13 @@ export async function PATCH(
 
   const clip = await prisma.clip.update({ where: { id }, data });
   return NextResponse.json(clip);
-}
+});
 
-export async function DELETE(
+export const DELETE = withAccess("clip", async (
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   await prisma.clip.delete({ where: { id } });
   return NextResponse.json({ ok: true });
-}
+});

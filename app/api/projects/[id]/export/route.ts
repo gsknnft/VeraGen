@@ -16,14 +16,15 @@ import {
   type TimelineClip,
 } from "@/remotion/durationUtils";
 import type { StudioCompositionProps } from "@/remotion/Composition";
+import { withAccess } from "@/lib/access";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-export async function POST(
+export const POST = withAccess("project", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id: projectId } = await params;
 
   const body = (await req.json().catch(() => ({}))) as { aspect?: string };
@@ -104,4 +105,4 @@ export async function POST(
   } finally {
     await fs.unlink(outputLocation).catch(() => {});
   }
-}
+});

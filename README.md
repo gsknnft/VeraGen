@@ -13,8 +13,14 @@ section).
 See [SCOPE.md](./SCOPE.md) for the product bet, architecture, known
 constraints, and 7-day plan.
 
-> **Current version: 0.3.0 (published)**
-> **Release lane:** prebuilt-native distribution + deterministic fallback (`prebuilt -> bindings -> TS`).
+> **Status: 0.1.0, private, not published.** Run it locally.
+>
+> **This instance has no access control yet.** `lib/access.ts` and
+> `lib/ownership.ts` are written and correct, but no route calls `withAccess`
+> and `Project`/`Collection` carry no `ownerId`, so anything reachable on the
+> host can list collections, mint, mutate a project by id, and start an export.
+> Public source is not a publicly writable instance — keep this on localhost
+> until ownership is wired. See SCOPE.md, "Access control".
 
 <p align="center">
   <img src="/public/brand/source/veragen-share-v1.png" alt="VeraGen Hero" />

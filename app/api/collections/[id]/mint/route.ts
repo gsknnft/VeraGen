@@ -4,11 +4,12 @@ import { prisma } from "@/lib/db";
 import { submitVideoJob } from "@/lib/higgsfield";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { pickTraits } from "@/lib/traits";
+import { withAccess } from "@/lib/access";
 
-export async function POST(
+export const POST = withAccess("collection", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   if (req.headers.get("origin") !== req.nextUrl.origin) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   if (!(await getHiggsfieldCredentials())) return NextResponse.json({ error: "Connect your own Higgsfield account. Generation uses your API credits." }, { status: 401 });
   const { id: collectionId } = await params;
@@ -115,4 +116,4 @@ export async function POST(
       { status: 502 }
     );
   }
-}
+});

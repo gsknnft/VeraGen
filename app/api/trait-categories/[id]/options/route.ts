@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { withAccess } from "@/lib/access";
 
-export async function POST(
+export const POST = withAccess("traitCategory", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id: categoryId } = await params;
   const body = (await req.json()) as {
     label?: string;
@@ -28,4 +29,4 @@ export async function POST(
     },
   });
   return NextResponse.json(option);
-}
+});

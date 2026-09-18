@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import type { BrandTemplate } from "@prisma/client";
+import { withAccess } from "@/lib/access";
 
 const VALID_TEMPLATES: BrandTemplate[] = ["none", "teaser", "productReveal", "announcement"];
 
-export async function GET(
+export const GET = withAccess("project", async (
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   const project = await prisma.project.findUnique({
     where: { id },
@@ -21,12 +22,12 @@ export async function GET(
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
   return NextResponse.json(project);
-}
+});
 
-export async function PATCH(
+export const PATCH = withAccess("project", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   const body = (await req.json()) as {
     styleLock?: string;
@@ -43,4 +44,4 @@ export async function PATCH(
 
   const project = await prisma.project.update({ where: { id }, data });
   return NextResponse.json(project);
-}
+});
