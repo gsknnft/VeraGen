@@ -18,6 +18,11 @@ export const PATCH = withAccess("clip", async (
   const { id } = await params;
   const body = (await req.json()) as PatchBody;
 
+  const existing = await prisma.clip.findUnique({ where: { id } });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const start = body.trimStart ?? existing.trimStart;
+  const end = body.trimEnd ?? existing.trimEnd ?? existing.durationSeconds;
+  if (end !== null && (end <= start || (existing.durationSeconds !== null && end > existing.durationSeconds))) return NextResponse.json({ error: "Trim must fit within the source clip." }, { status: 400 });
   const data: PatchBody = {};
   if (typeof body.order === "number") data.order = body.order;
   if (typeof body.trimStart === "number") data.trimStart = body.trimStart;

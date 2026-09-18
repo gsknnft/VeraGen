@@ -6,15 +6,18 @@ import { withAccess } from "@/lib/access";
 export const GET = withAccess(null, async (_request, _context, session) => {
   const projects = await prisma.project.findMany({
     where: { ownerId: session.user.id },
+    take: 100,
     orderBy: { updatedAt: "desc" },
     select: { id: true, name: true, updatedAt: true },
   });
   return NextResponse.json(projects);
 });
 
-export const POST = withAccess(null, async (_request, _context, session) => {
+export const POST = withAccess(null, async (request, _context, session) => {
+  const body = await request.json().catch(() => ({}));
+  const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : "Untitled social video";
   // Stamped at creation. A project created without an owner is invisible to
   // every session, which is the safe direction to fail.
-  const project = await prisma.project.create({ data: { ownerId: session.user.id } });
+  const project = await prisma.project.create({ data: { ownerId: session.user.id, name } });
   return NextResponse.json({ id: project.id });
 });

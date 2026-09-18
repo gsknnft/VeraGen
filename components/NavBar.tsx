@@ -1,3 +1,4 @@
+import { AccountMenu } from "./AccountMenu";
 import Link from "next/link";
 import { Brand } from "./Brand";
 import { HiggsfieldConnection } from "./HiggsfieldConnection";
@@ -13,6 +14,7 @@ export function NavBar({ active }: { active: "studio" | "collections" }) {
         Mint Lab
       </Link>
       <HiggsfieldConnection />
+      <AccountMenu />
     </nav>
   );
 }

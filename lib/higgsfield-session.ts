@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
-export type HiggsfieldCredentials = { id: string; secret: string };
+export type HiggsfieldCredentials = { id: string; secret: string; userId: string; sessionId: string };
 export const SESSION_SECONDS = 8 * 60 * 60;
 
 function encryptionKey() {
@@ -22,7 +22,7 @@ export function openCredentials(value: string, now = Date.now()): HiggsfieldCred
     const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), bytes.subarray(0, 12));
     decipher.setAuthTag(bytes.subarray(12, 28));
     const payload = JSON.parse(Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString());
-    if (payload.expires <= now || typeof payload.expires !== "number" || typeof payload.id !== "string" || typeof payload.secret !== "string") return null;
-    return { id: payload.id, secret: payload.secret };
+    if (payload.expires <= now || typeof payload.expires !== "number" || typeof payload.id !== "string" || typeof payload.secret !== "string" || typeof payload.userId !== "string" || typeof payload.sessionId !== "string") return null;
+    return { id: payload.id, secret: payload.secret, userId: payload.userId, sessionId: payload.sessionId };
   } catch { return null; }
 }

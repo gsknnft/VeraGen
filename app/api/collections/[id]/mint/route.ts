@@ -2,20 +2,19 @@ import { getHiggsfieldCredentials } from "@/lib/higgsfield-credentials";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { submitVideoJob } from "@/lib/higgsfield";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { consumeQuota } from "@/lib/quota";
 import { pickTraits } from "@/lib/traits";
 import { withAccess } from "@/lib/access";
 
 export const POST = withAccess("collection", async (
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }, session
 ) => {
   if (req.headers.get("origin") !== req.nextUrl.origin) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
   if (!(await getHiggsfieldCredentials())) return NextResponse.json({ error: "Connect your own Higgsfield account. Generation uses your API credits." }, { status: 401 });
   const { id: collectionId } = await params;
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const { allowed } = checkRateLimit(ip);
+  const allowed = await consumeQuota(`generation:${session.user.id}`, 20, 86400);
   if (!allowed) {
     return NextResponse.json(
       { error: "Daily generation limit reached. Try again tomorrow." },
@@ -90,9 +89,7 @@ export const POST = withAccess("collection", async (
   const traitPrompt = chosenOptions.map((o) => o.promptFragment).join(", ");
   const prompt = collection.styleLock ? `${traitPrompt}. ${collection.styleLock}` : traitPrompt;
 
-  try {
-    const { requestId } = await submitVideoJob({ prompt });
-    const mint = await prisma.mint.create({
+  const mint = await prisma.mint.create({
       data: {
         collectionId,
         mintNumber,
@@ -101,19 +98,19 @@ export const POST = withAccess("collection", async (
         txHash,
         prompt,
         status: "processing",
-        higgsfieldRequestId: requestId,
+
         traits: {
           create: chosenOptions.map((o) => ({ traitOptionId: o.id })),
         },
       },
       include: { traits: { include: { traitOption: true } } },
     });
+  try {
+    const { requestId } = await submitVideoJob({ prompt });
+    await prisma.mint.update({ where: { id: mint.id }, data: { higgsfieldRequestId: requestId } });
     return NextResponse.json(mint);
-  } catch (err) {
-    console.error("Mint generation failed to start", err);
-    return NextResponse.json(
-      { error: "Generation failed to start. Try again shortly." },
-      { status: 502 }
-    );
+  } catch {
+    await prisma.mint.update({ where: { id: mint.id }, data: { status: "failed", errorMessage: "Submission uncertain. Check your Higgsfield account before generating again." } });
+    return NextResponse.json({ error: "Submission uncertain. Check your Higgsfield account before generating again." }, { status: 502 });
   }
 });

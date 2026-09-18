@@ -81,6 +81,7 @@ enum TransitionType {
 }
 
 model Clip {
+  submissionKey String? @unique
   id        String  @id @default(cuid())
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId String
@@ -124,15 +125,69 @@ model Clip {
   @@index([projectId, order])
 }
 
+/// An export is a durable job row, not a record of a finished render.
+///
+/// Rendering drives a real headless Chromium for minutes. Doing that inside
+/// the request meant the browser held a connection open for the whole render,
+/// a deploy killed anything in flight with no trace, and N simultaneous
+/// clicks meant N Chromiums competing for the same RAM. So the route enqueues
+/// and a separate worker claims. `videoUrl` is null until it succeeds.
 model Export {
-  id              String   @id @default(cuid())
-  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id              String       @id @default(cuid())
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId       String
-  videoUrl        String
+  videoUrl        String?
   durationSeconds Float
   // "9:16" | "1:1" | "16:9" — see remotion/durationUtils.ts's ASPECTS.
-  aspect          String   @default("9:16")
-  createdAt       DateTime @default(now())
+  aspect          String       @default("9:16")
+  status          ExportStatus @default(queued)
+  /// The timeline as it was when the export was requested. Snapshotted rather
+  /// than re-read at render time so that trimming a clip while a render is
+  /// queued cannot silently change what comes out.
+  inputProps      Json
+  attempts        Int          @default(0)
+  /// Set when a worker takes the job. A row still `rendering` with an old
+  /// `claimedAt` was abandoned by a worker that died, and is reclaimable.
+  claimedAt       DateTime?
+  errorMessage    String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([projectId])
+  // The claim query's filter: oldest queued job first.
+  @@index([status, createdAt])
+}
+
+enum ExportStatus {
+  queued
+  rendering
+  completed
+  failed
+}
+
+/// Every uploaded or generated file, owned by exactly one user.
+///
+/// Objects are written to the bucket privately and never linked directly;
+/// `uploadBuffer` returns `/api/media/<id>` and the bytes are only reachable
+/// through a short-lived signed URL issued after an ownership check. The
+/// storage key is a UUID under the owner's prefix, so a key is not guessable
+/// from anything the client knows.
+///
+/// `size` is stored rather than queried from the bucket because the per-user
+/// allowance is checked on every upload, and that check has to be one cheap
+/// aggregate rather than a bucket listing.
+model MediaAsset {
+  id          String   @id @default(cuid())
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId     String
+  /// Object key within the bucket. Never returned to a client.
+  key         String   @unique
+  contentType String
+  /// Bytes. Summed per owner to enforce the storage allowance.
+  size        Int
+  createdAt   DateTime @default(now())
+
+  @@index([ownerId])
 }
 
 // --- Generative collections (e.g. "BittyDragons") -----------------------
@@ -250,6 +305,7 @@ model User {
   accounts      Account[]
   projects      Project[]
   collections   Collection[]
+  mediaAssets   MediaAsset[]
 
   @@unique([email])
   @@map("user")
@@ -312,3 +368,10 @@ model RateLimit {
   @@unique([key])
   @@map("rateLimit")
 }
+
+model UsageQuota {
+  key String @id
+  count Int
+  expiresAt DateTime
+}
+

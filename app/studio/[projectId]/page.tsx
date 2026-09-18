@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/session";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { isMockMode } from "@/lib/higgsfield";
@@ -11,10 +12,11 @@ export default async function StudioPage({
 }: {
   params: Promise<{ projectId: string }>;
 }) {
+  const user = await requireUser();
   const { projectId } = await params;
 
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, ownerId: user.id },
     include: {
       clips: { orderBy: { order: "asc" } },
       characters: { orderBy: { createdAt: "asc" } },

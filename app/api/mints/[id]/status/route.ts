@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getVideoMetadata } from "@remotion/renderer";
 import { prisma } from "@/lib/db";
 import { getJobStatus } from "@/lib/higgsfield";
-import { persistRemoteVideo } from "@/lib/storage";
+import { persistRemoteVideo, signedMediaUrl } from "@/lib/storage";
 import { withAccess } from "@/lib/access";
 
 export const runtime = "nodejs";
 
 export const GET = withAccess("mint", async (
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }, session
 ) => {
   const { id } = await params;
 
@@ -48,7 +48,7 @@ export const GET = withAccess("mint", async (
     let duration = status.durationSeconds ?? 5;
     if (!status.skipPersist) {
       durableUrl = await persistRemoteVideo(status.videoUrl, `mints/${id}.mp4`);
-      const metadata = await getVideoMetadata(durableUrl);
+      const metadata = await getVideoMetadata(await signedMediaUrl(durableUrl, session.user.id));
       duration = metadata.durationInSeconds ?? 5;
     }
 

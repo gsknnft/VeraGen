@@ -1,4 +1,5 @@
 import "server-only";
+import { validJsonInput } from "./input";
 import { NextRequest, NextResponse } from "next/server";
 import { currentSession } from "./session";
 import { prisma } from "./db";
@@ -55,6 +56,7 @@ export function withAccess<P extends Params = Params>(
           }
           request = new NextRequest(request.url, { method: request.method, headers: request.headers, body: Buffer.concat(chunks) });
         }
+        if (request.headers.get("content-type")?.startsWith("application/json") && !validJsonInput(await request.clone().json())) return NextResponse.json({ error: "Invalid field value" }, { status: 400 });
         if (!(await consumeQuota(`write:${session.user.id}`, 120, 60))) return NextResponse.json({ error: "Please slow down." }, { status: 429, headers: { "Retry-After": "60" } });
       }
       if (kind) {

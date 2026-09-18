@@ -10,3 +10,9 @@ allowBuilds:
   "@prisma/engines": true
   "prisma": true
   "esbuild": true
+
+# Security fixes for transitive dependencies pinned by upstream packages.
+overrides:
+  postcss: ^8.5.23
+  sharp: ^0.35.4
+  deepmerge-ts: ^8.0.0

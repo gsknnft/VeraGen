@@ -22,6 +22,8 @@ export function GeneratePanel({
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const attempt = useRef<string | null>(null);
+  const sending = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function applyVibe(id: Vibe, presetPrompt: string) {
@@ -31,14 +33,18 @@ export function GeneratePanel({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (sending.current) return;
     if (!prompt.trim()) {
       setError("Write a prompt, or pick a vibe to start from.");
       return;
     }
+    sending.current = true;
     setSubmitting(true);
     setError(null);
 
     const form = new FormData();
+    attempt.current ??= crypto.randomUUID();
+    form.append("attempt", attempt.current);
     form.append("prompt", prompt);
     form.append("vibe", vibe);
     if (selectedCharacterId) {
@@ -49,6 +55,7 @@ export function GeneratePanel({
 
     try {
       await onGenerate(form);
+      attempt.current = null;
       setPrompt("");
       setVibe("custom");
       setFile(null);
@@ -56,6 +63,7 @@ export function GeneratePanel({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
+      sending.current = false;
       setSubmitting(false);
     }
   }
@@ -71,9 +79,9 @@ export function GeneratePanel({
         >
           {preview ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={preview} alt="Selected face" />
+            <img src={preview} alt="Selected reference" />
           ) : (
-            <span>Tap to add a face photo (optional, one-off)</span>
+            <span>Tap to add a reference image (optional, one-off)</span>
           )}
           <input
             ref={inputRef}

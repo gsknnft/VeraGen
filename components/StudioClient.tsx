@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { browserExport } from "@/lib/browser-export";
 import { GeneratePanel } from "./GeneratePanel";
 import { Timeline, type ClipData } from "./Timeline";
 import { PreviewPlayer } from "./PreviewPlayer";
@@ -49,6 +50,11 @@ export function StudioClient({
   const [exporting, setExporting] = useState(false);
   const [exportUrl, setExportUrl] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const exportAbort = useRef<AbortController | null>(null);
+  const exportBlob = useRef<Blob | null>(null);
+  const exportObjectUrl = useRef<string | null>(null);
+  useEffect(() => () => { exportAbort.current?.abort(); if (exportObjectUrl.current) URL.revokeObjectURL(exportObjectUrl.current); }, []);
   const trimTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const captionTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const styleLockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -184,26 +190,25 @@ export function StudioClient({
   }
 
   async function handleExport() {
-    setExporting(true);
-    setExportError(null);
-    setExportUrl(null);
+    if (exportAbort.current) return;
+    const controller = new AbortController(); exportAbort.current = controller;
+    setExporting(true); setExportError(null); setExportStatus("Preparing your MP4?"); setExportUrl(null);
+    if (exportObjectUrl.current) URL.revokeObjectURL(exportObjectUrl.current);
+    exportBlob.current = null;
     try {
-      const res = await fetch(`/api/projects/${projectId}/export`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ aspect }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setExportError(data.error ?? "Export failed");
-        return;
-      }
-      setExportUrl(data.videoUrl);
-    } catch {
-      setExportError("Network error while exporting");
-    } finally {
-      setExporting(false);
-    }
+      const blob = await browserExport({ clips: completedClips, brand, projectName, aspect }, aspect, controller.signal,
+        progress => setExportStatus(`Rendering on your device ? ${Math.round(progress * 100)}%`));
+      exportBlob.current = blob;
+      exportObjectUrl.current = URL.createObjectURL(blob); setExportUrl(exportObjectUrl.current);
+    } catch (error) { setExportError(controller.signal.aborted ? "Export canceled." : error instanceof Error ? error.message : "Export failed."); }
+    finally { exportAbort.current = null; setExporting(false); setExportStatus(null); }
+  }
+  async function shareExport() {
+    if (!exportBlob.current) return;
+    const file = new File([exportBlob.current], "veragen-social.mp4", { type: "video/mp4" });
+    if (!navigator.canShare?.({ files: [file] })) { setExportError("Download your MP4, then upload it to your social app."); return; }
+    try { await navigator.share({ files: [file], title: projectName, text: ctaText || "Made with VeraGen" }); }
+    catch (error) { if (!(error instanceof DOMException && error.name === "AbortError")) setExportError("Sharing did not complete. You can still download your MP4."); }
   }
 
   const completedClips: TimelineClip[] = clips
@@ -279,11 +284,13 @@ export function StudioClient({
           ))}
         </select>
         <button className="primary" onClick={handleExport} disabled={exporting || completedClips.length === 0}>
-          {exporting ? "Rendering…" : "Export video"}
+          {exporting ? (exportStatus ?? "Rendering…") : "Export MP4 on this device"}
         </button>
+        {exporting && <button onClick={() => exportAbort.current?.abort()}>Cancel export</button>}
+        {exportUrl && <button onClick={shareExport}>Share video</button>}
         {exportError && <p className="error">{exportError}</p>}
         {exportUrl && (
-          <a className="download-link" href={exportUrl} download>
+          <a className="download-link" href={exportUrl} download="veragen-social.mp4">
             Download export
           </a>
         )}

@@ -1,12 +1,6 @@
-import path from "path";
-import os from "os";
-import fs from "fs/promises";
-import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { bundle } from "@remotion/bundler";
-import { renderMedia, selectComposition } from "@remotion/renderer";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { uploadBuffer } from "@/lib/storage";
 import { FREE_EXPORT_MAX_SECONDS } from "@/lib/config";
 import {
   DEFAULT_ASPECT,
@@ -17,14 +11,23 @@ import {
 } from "@/remotion/durationUtils";
 import type { StudioCompositionProps } from "@/remotion/Composition";
 import { withAccess } from "@/lib/access";
+import { enqueueExport } from "@/lib/render-queue";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
 
+/**
+ * Enqueues a render; it does not perform one.
+ *
+ * Rendering here meant holding the request open for minutes while a headless
+ * Chromium ran, losing the job entirely on deploy, and letting N clicks start
+ * N Chromiums on the same box. The worker (`worker/render-worker.ts`) claims
+ * these one at a time. Poll `GET /api/exports/[id]` for the result.
+ */
 export const POST = withAccess("project", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) => {
+  if (process.env.ENABLE_SERVER_EXPORTS !== "true") return NextResponse.json({ error: "Server export is disabled. Use browser export." }, { status: 503 });
   const { id: projectId } = await params;
 
   const body = (await req.json().catch(() => ({}))) as { aspect?: string };
@@ -66,7 +69,18 @@ export const POST = withAccess("project", async (
     );
   }
 
-  const outputLocation = path.join(os.tmpdir(), `loopface-export-${randomUUID()}.mp4`);
+  // One queued export per project at a time. Without this, holding the button
+  // down queues a dozen identical renders that each cost a Chromium.
+  const inFlight = await prisma.export.findFirst({
+    where: { projectId, status: { in: ["queued", "rendering"] } },
+    select: { id: true, status: true },
+  });
+  if (inFlight) {
+    return NextResponse.json(
+      { error: "This project already has an export in progress.", ...inFlight },
+      { status: 409 }
+    );
+  }
 
   // Cast to satisfy Remotion's Record<string, unknown> inputProps signature
   // — it just serializes whatever's given, and Root.tsx's calculateMetadata
@@ -78,31 +92,14 @@ export const POST = withAccess("project", async (
     aspect,
   } satisfies StudioCompositionProps as Record<string, unknown>;
 
-  try {
-    const serveUrl = await bundle({
-      entryPoint: path.join(process.cwd(), "remotion", "index.ts"),
-    });
+  const job = await enqueueExport({
+    projectId,
+    aspect,
+    durationSeconds: duration,
+    // Prisma's InputJsonValue does not accept an open Record; the value is a
+    // plain serializable object, which is what the column stores.
+    inputProps: inputProps as Prisma.InputJsonObject,
+  });
 
-    const composition = await selectComposition({ serveUrl, id: "Studio", inputProps });
-
-    await renderMedia({ composition, serveUrl, codec: "h264", outputLocation, inputProps });
-
-    const buffer = await fs.readFile(outputLocation);
-    const videoUrl = await uploadBuffer(
-      `exports/${projectId}/${randomUUID()}.mp4`,
-      buffer,
-      "video/mp4"
-    );
-
-    const exportRow = await prisma.export.create({
-      data: { projectId, videoUrl, durationSeconds: duration, aspect },
-    });
-
-    return NextResponse.json(exportRow);
-  } catch (err) {
-    console.error("Export render failed", err);
-    return NextResponse.json({ error: "Export failed to render" }, { status: 500 });
-  } finally {
-    await fs.unlink(outputLocation).catch(() => {});
-  }
+  return NextResponse.json(job, { status: 202 });
 });

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { uploadBuffer } from "@/lib/storage";
 import { withAccess } from "@/lib/access";
 
-const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 3 * 1024 * 1024;
 
 export const POST = withAccess("project", async (
   req: NextRequest,
@@ -30,11 +30,11 @@ export const POST = withAccess("project", async (
     return NextResponse.json({ error: "A reference photo is required" }, { status: 400 });
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return NextResponse.json({ error: "Image too large (max 8MB)" }, { status: 400 });
+    return NextResponse.json({ error: "Image too large (max 3MB)" }, { status: 400 });
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const clean = await sharp(bytes)
+  const clean = await sharp(bytes, { limitInputPixels: 16000000 })
     .rotate()
     .resize(1024, 1024, { fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 90 })

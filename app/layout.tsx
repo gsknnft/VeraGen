@@ -3,6 +3,7 @@ import "./globals.css";
 import { BRAND } from "@/lib/brand";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.BETTER_AUTH_URL || "http://localhost:3000"),
   title: { default: `${BRAND.name} — Ideas into motion`, template: `%s · ${BRAND.name}` },
   description: BRAND.description,
   icons: { icon: [{ url: "/favicon.ico", sizes: "32x32" }, { url: "/icon.svg", type: "image/svg+xml" }], apple: "/apple-icon.png" },

@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/session";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { isMockMode } from "@/lib/higgsfield";
@@ -11,10 +12,11 @@ export default async function CollectionPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const user = await requireUser();
   const { id } = await params;
 
-  const collection = await prisma.collection.findUnique({
-    where: { id },
+  const collection = await prisma.collection.findFirst({
+    where: { id, ownerId: user.id },
     include: {
       traitCategories: {
         orderBy: { sortOrder: "asc" },

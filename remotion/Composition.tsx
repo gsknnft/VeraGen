@@ -1,5 +1,6 @@
 import React from "react";
-import { AbsoluteFill, OffthreadVideo, Series } from "remotion";
+import { Video } from "@remotion/media";
+import { AbsoluteFill, Series } from "remotion";
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
 import { fade } from "@remotion/transitions/fade";
 import { TitleCard } from "./TitleCard";
@@ -64,10 +65,10 @@ export const ClipsSequence: React.FC<{ clips: TimelineClip[] }> = ({ clips }) =>
       items.push(
         <TransitionSeries.Sequence key={clip.id} durationInFrames={timing.duration}>
           <AbsoluteFill>
-            <OffthreadVideo
+            <Video
               src={clip.videoUrl}
-              startFrom={timing.start}
-              endAt={timing.end}
+              trimBefore={timing.start}
+              trimAfter={timing.end}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
             {clip.caption && <CaptionOverlay text={clip.caption} />}

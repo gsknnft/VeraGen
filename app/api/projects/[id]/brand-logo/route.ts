@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { uploadBuffer } from "@/lib/storage";
 import { withAccess } from "@/lib/access";
 
-const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 3 * 1024 * 1024;
 
 export const POST = withAccess("project", async (
   req: NextRequest,
@@ -24,12 +24,12 @@ export const POST = withAccess("project", async (
     return NextResponse.json({ error: "A logo image is required" }, { status: 400 });
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return NextResponse.json({ error: "Logo too large (max 4MB)" }, { status: 400 });
+    return NextResponse.json({ error: "Logo too large (max 3MB)" }, { status: 400 });
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
   // PNG (not JPEG) so a transparent logo stays transparent over any clip.
-  const clean = await sharp(bytes)
+  const clean = await sharp(bytes, { limitInputPixels: 16000000 })
     .rotate()
     .resize(512, 512, { fit: "inside", withoutEnlargement: true })
     .png()
