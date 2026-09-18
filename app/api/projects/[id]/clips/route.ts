@@ -18,14 +18,6 @@ export const POST = withAccess("project", async (
   if (!(await getHiggsfieldCredentials())) return NextResponse.json({ error: "Connect your own Higgsfield account. Generation uses your API credits." }, { status: 401 });
   const { id: projectId } = await params;
 
-  const allowed = await consumeQuota(`generation:${session.user.id}`, 20, 86400);
-  if (!allowed) {
-    return NextResponse.json(
-      { error: "Daily generation limit reached. Try again tomorrow." },
-      { status: 429 }
-    );
-  }
-
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
@@ -37,6 +29,17 @@ export const POST = withAccess("project", async (
   const submissionKey = createHash("sha256").update(`${session.user.id}:${projectId}:${attempt}`).digest("hex");
   const previous = await prisma.clip.findUnique({ where: { submissionKey } });
   if (previous) return NextResponse.json(previous);
+
+  // Charged only after the duplicate check: a refresh or retry of the same
+  // attempt returns the existing clip and must not spend a daily slot.
+  const allowed = await consumeQuota(`generation:${session.user.id}`, 20, 86400);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Daily generation limit reached. Try again tomorrow." },
+      { status: 429 }
+    );
+  }
+
   const file = form.get("image");
   const promptField = form.get("prompt");
   const vibeField = form.get("vibe");

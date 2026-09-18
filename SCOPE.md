@@ -92,26 +92,13 @@ around the existing clip timeline, no new services:
   `calculateMetadata` declares) was checked by hand, but the first real
   export attempt is the actual test.
 
-## Mock mode — building with $0 spent and no Higgsfield key yet
+## No key? Bring your own clips
 
-`lib/higgsfield.ts` checks for `HF_API_KEY_ID` / `HF_API_KEY_SECRET` on
-every call. Missing either one flips on mock mode: `submitVideoJob`
-returns instantly, `getJobStatus` returns "completed" against one of a
-handful of stable public-domain sample clips (Google's long-standing
-`gtv-videos-bucket` test videos), and the clip/mint status routes skip
-re-hosting and duration-probing entirely for those (they're already
-permanently hosted, and duration is hardcoded) — so mock mode needs no
-object storage configured either. The studio and collection pages show a
-plain banner when it's active. This is what lets the whole pipeline —
-characters, traits, timeline, preview — get built and demoed for free
-before there's a real key, and it turns off automatically the moment a
-real key is set, no code change.
+Mock mode is gone: it returned stock sample clips, which made the product look like it worked when no generation had happened. Generation now requires the user's own funded Higgsfield key (see BYOK.md) and never falls back to operator billing or sample footage.
 
-Worth trying before paying for one: the original bounty post
-(@gpumaxxer) said Higgsfield "will even power it" for anyone building a
-competitor on their API — replying to that post or DMing them directly
-for bounty-participant API credits is a real option, not just a hope.
+Someone without a key is not locked out. **Upload your own clip** (`components/UploadClip.tsx`) puts their own MP4/MOV on the timeline, so the editor, brand kit and browser export all work from the first minute. It costs nothing to generate. The video goes browser → bucket on a presigned PUT and never passes through the app server. See `lib/storage.ts`, "Direct uploads", for why it is two-phase (`veragen/pending/` → verified → `veragen/users/`).
 
+Worth asking before paying for a key: the original bounty post (@gpumaxxer) said Higgsfield "will even power it". Asking them directly for bounty-participant API credits is a real option.
 ## Mint Lab — trait-based generative sets (`/collections`)
 
 **This is explicitly a playground, not the BittyDragons/Bittyverse canon

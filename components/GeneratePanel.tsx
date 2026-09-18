@@ -124,7 +124,7 @@ export function GeneratePanel({
       </div>
 
       <button className="primary" type="submit" disabled={disabled || submitting}>
-        {submitting ? "Starting…" : "Generate ? my Higgsfield credits"}
+        {submitting ? "Starting…" : "Generate — uses my Higgsfield credits"}
       </button>
 
       {error && <p className="error">{error}</p>}

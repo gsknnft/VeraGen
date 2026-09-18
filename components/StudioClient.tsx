@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { browserExport } from "@/lib/browser-export";
 import { GeneratePanel } from "./GeneratePanel";
+import { UploadClip } from "./UploadClip";
 import { Timeline, type ClipData } from "./Timeline";
 import { PreviewPlayer } from "./PreviewPlayer";
 import { CharacterPanel, type CharacterData } from "./CharacterPanel";
@@ -194,7 +195,7 @@ export function StudioClient({
   async function handleExport() {
     if (exportAbort.current) return;
     const controller = new AbortController(); exportAbort.current = controller;
-    setExporting(true); setExportError(null); setExportStatus("Preparing your MP4?"); setExportUrl(null);
+    setExporting(true); setExportError(null); setExportStatus("Preparing your MP4…"); setExportUrl(null);
     if (exportObjectUrl.current) URL.revokeObjectURL(exportObjectUrl.current);
     exportBlob.current = null;
     try {
@@ -261,6 +262,8 @@ export function StudioClient({
         onSelect={setSelectedCharacterId}
         onCreated={(c) => setCharacters((prev) => [...prev, c])}
       />
+
+      <UploadClip projectId={projectId} onUploaded={(clip) => setClips((prev) => [...prev, clip])} />
 
       <GeneratePanel
         onGenerate={handleGenerate}
