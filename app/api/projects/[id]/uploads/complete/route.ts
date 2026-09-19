@@ -1,3 +1,4 @@
+import { uploadError } from "@/lib/upload-error";
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { prisma } from "@/lib/db";
@@ -48,7 +49,7 @@ export const POST = withAccess("project", async (
   try {
     ({ reference } = await claimUpload(session.user.id, body.key));
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Upload could not be saved." }, { status: 400 });
+    return NextResponse.json({ error: uploadError(err) }, { status: 400 });
   }
 
   const last = await prisma.clip.findFirst({ where: { projectId }, orderBy: { order: "desc" } });

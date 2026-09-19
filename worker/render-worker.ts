@@ -80,7 +80,7 @@ async function render(job: ClaimedExport): Promise<void> {
   } catch (err) {
     // The operator gets the real error; the job row gets a written message,
     // because the owner of the job reads that one.
-    console.error(`[worker] export ${job.id} failed on attempt ${job.attempts}`, err);
+    console.error(`[worker] export ${job.id} failed on attempt ${job.attempts}`);
     await failExport(
       job.id,
       job.attempts,
@@ -106,7 +106,7 @@ async function loop() {
       job = await claimNextExport();
     } catch (err) {
       // A database blip should slow the worker down, not kill it.
-      console.error("[worker] could not claim a job", err);
+      console.error("[worker] could not claim a job");
       await sleep(IDLE_POLL_MS);
       continue;
     }
@@ -143,6 +143,6 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 }
 
 loop().catch((err) => {
-  console.error("[worker] fatal", err);
+  console.error("[worker] fatal worker failure");
   process.exit(1);
 });

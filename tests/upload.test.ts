@@ -1,4 +1,4 @@
-import { it, expect, beforeAll } from "vitest";
+import { it, expect, beforeAll, vi } from "vitest";
 
 // claimUpload validates the key before it touches storage or the database, so
 // these run without either. S3 settings only need to exist for the client to
@@ -38,4 +38,16 @@ it("refuses to presign anything but MP4/MOV within the size cap", async () => {
   for (const size of [0, -1, 1.5, UPLOAD_MAX_BYTES + 1, Number.NaN]) {
     await expect(presignUpload(OWNER, "video/mp4", size), String(size)).rejects.toThrow("64 MB");
   }
+});
+
+it("signs both upload size and content type without making an S3 request", async () => {
+  const { prisma } = await import("../lib/db");
+  const aggregate = vi.spyOn(prisma.mediaAsset, "aggregate").mockResolvedValue({ _sum: { size: 0 } } as never);
+  try {
+    const { presignUpload } = await import("../lib/storage");
+    const ticket = await presignUpload(OWNER, "video/mp4", 1024);
+    const signed = new URL(ticket.url).searchParams.get("X-Amz-SignedHeaders");
+    expect(signed).toContain("content-length");
+    expect(signed).toContain("content-type");
+  } finally { aggregate.mockRestore(); }
 });

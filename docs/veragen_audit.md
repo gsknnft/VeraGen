@@ -1,3 +1,5 @@
+> Historical audit captured before route integration. Its findings are not a description of current HEAD. See VERIFICATION_2026-09-19.md for current checks and remaining launch gates.
+
 # VeraGen Production Audit — 2026-09-17
 
 ## Status

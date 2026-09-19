@@ -81,7 +81,7 @@ export async function presignUpload(ownerId: string, contentType: UploadType, si
   const url = await getSignedUrl(
     s3(),
     new PutObjectCommand({ Bucket: bucket(), Key: key, ContentType: contentType, ContentLength: size, ACL: "private" }),
-    { expiresIn: 900 },
+    { expiresIn: 900, signableHeaders: new Set(["content-type"]) },
   );
   return { key, url };
 }

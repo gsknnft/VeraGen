@@ -1,3 +1,5 @@
+> Historical prototype scope. The user has since authorized a multi-user platform. Accounts, private ownership, browser export and direct clip imports supersede conflicting v1 assumptions below. See README.md and docs/PUBLIC_LAUNCH.md for the current implementation.
+
 # VeraGen — scope
 
 ## The bet

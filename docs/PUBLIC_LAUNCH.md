@@ -31,7 +31,7 @@ The checked-in platform_baseline migration creates the complete schema for a NEW
 
 For a new empty database: run pnpm exec prisma migrate deploy, then pnpm exec prisma generate. No migration was applied to the home Pi during this work.
 
-For an EXISTING database, do not run the create-all baseline directly or blindly mark it applied. Back up the database, compare its actual schema against prisma/schema.prisma, prepare/apply a reviewed additive migration, then baseline only after the schemas agree. Existing exports need explicit completed status and valid snapshots where relevant. Existing projects/collections with null ownerId remain inaccessible until an administrator deliberately assigns their real owner. There is no public claim-existing-project endpoint.
+For an EXISTING database, do not run the create-all baseline directly or blindly mark it applied. Back up the database, compare its actual schema against prisma/schema.prisma, prepare/apply a reviewed additive migration, then baseline only after the schemas agree. Existing exports need explicit completed status and valid snapshots where relevant. The require_owner migration intentionally fails if any existing projects/collections have null ownerId. Backfill each record to its real owner before applying it; do not bulk-assign all records to a newly registered user. There is no public claim-existing-project endpoint.
 
 Old publicly hosted asset URLs are rejected by new private-media signing. Import owned files into the private bucket and update references deliberately; changing app code cannot make previously published URLs private or remove Git history. Previously tracked environment secrets should be rotated if the repository was shared.
 
@@ -48,3 +48,7 @@ Old publicly hosted asset URLs are rejected by new private-media signing. Import
 
 Unit tests exercise access guards, provider-key ownership, request validation and URL allowlisting. Database tests apply the full SQL schema and exercise the real atomic quota SQL with concurrent requests. These do not replace a live OAuth callback test, actual private bucket policy/CORS test, browser export playback check or funded Higgsfield test.
 
+
+## No-credit validation path
+
+Until a funded tester is available, use Upload your own clip to test sign-in, private storage, timeline edits, branding, browser MP4 export and sharing. This does not prove the Higgsfield generation step. Keep the two results separate.

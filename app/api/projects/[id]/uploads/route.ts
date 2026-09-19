@@ -1,3 +1,4 @@
+import { uploadError } from "@/lib/upload-error";
 import { NextRequest, NextResponse } from "next/server";
 import { withAccess } from "@/lib/access";
 import { consumeQuota } from "@/lib/quota";
@@ -35,6 +36,6 @@ export const POST = withAccess("project", async (
   } catch (err) {
     // These messages are written for users (size, type, allowance); nothing
     // from the storage provider reaches here.
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Upload could not start." }, { status: 400 });
+    return NextResponse.json({ error: uploadError(err) }, { status: 400 });
   }
 });

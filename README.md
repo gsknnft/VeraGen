@@ -1,77 +1,47 @@
 # VeraGen
 
-<p align="center">
-  <img src="/public/brand/source/veragen-logo-v1.png" alt="VeraGen Logo" width="180" />
-</p>
+![VeraGen](public/brand/veragen-logo.png)
 
-A small video studio built on the [Higgsfield API](https://docs.higgsfield.ai/docs):
-prompt in, clip out, arrange clips on a timeline, export a finished video.
-Also includes `/collections` — trait-based generative sets that mint a
-unique, reproducible video per mint number (see SCOPE.md's "Bittyverse"
-section).
+**Turn a product image, character, NFT artwork, brand, or idea into a finished branded social video.**
 
-See [SCOPE.md](./SCOPE.md) for the product bet, architecture, known
-constraints, and 7-day plan.
+Sign in, bring an existing clip or generate with your own Higgsfield API account, edit the timeline, add captions and branding, then export a portrait, square or widescreen MP4 on your device. Download it or use your device's share sheet. VeraGen does not post to social accounts automatically.
 
-> **Status: 0.1.0, private, not published.** Run it locally.
->
-> **This instance has no access control yet.** `lib/access.ts` and
-> `lib/ownership.ts` are written and correct, but no route calls `withAccess`
-> and `Project`/`Collection` carry no `ownerId`, so anything reachable on the
-> host can list collections, mint, mutate a project by id, and start an export.
-> Public source is not a publicly writable instance — keep this on localhost
-> until ownership is wired. See SCOPE.md, "Access control".
+## Current status
 
-<p align="center">
-  <img src="/public/brand/source/veragen-share-v1.png" alt="VeraGen Hero" />
-</p>
+Multi-user beta code with Better Auth, owned projects, private media, bounded uploads and per-user quotas. Build/test results are recorded in [the verification report](docs/VERIFICATION_2026-09-19.md). A real funded Higgsfield → edit → branded export completed by an independent user is **not yet verified**. No funded tester is currently available.
 
-## Setup
+Generation uses the user's API credentials; the app never falls back to an operator key. Importing an existing clip requires no Higgsfield credits. Storage and hosting still have their own costs.
 
-```bash
-pnpm install
-cp .env.example .env.local
+## Run locally
+
+Use Node 24 and pnpm 11.
+
+1. Install with `pnpm install --frozen-lockfile`.
+2. Configure the values in `.env.example` using an untracked local environment file. Prisma CLI and Next must use the SAME isolated VeraGen database. Prisma reads `.env`; Next also reads `.env.local`, which takes precedence.
+3. For a NEW, EMPTY database, run `pnpm exec prisma migrate deploy` and `pnpm exec prisma generate`. Existing databases require the migration procedure in [PUBLIC_LAUNCH.md](docs/PUBLIC_LAUNCH.md).
+4. Configure Google or GitHub OAuth and private S3-compatible storage, then run `pnpm dev`. Local-only development can use the explicit development identity described in `.env.example`; never expose the dev server publicly.
+5. Open `http://localhost:3000`. The studio requires sign-in and shows only the current user's projects.
+
+No mock generation or operator-funded credit mode is enabled. A missing Higgsfield connection blocks generation; users can still upload their own clips.
+
+## Validation
+
+```sh
+pnpm test
+pnpm typecheck
+pnpm build
+pnpm audit --prod
+pnpm preflight
 ```
 
-Nothing above is required to start building — with no `HF_API_KEY_ID`/
-`HF_API_KEY_SECRET` set, the app runs in **mock mode**: generations
-resolve instantly against stock placeholder clips instead of calling the
-(paid) Higgsfield API, and skip needing object storage configured too.
-Only `DATABASE_URL` (any reachable Postgres) is required from day one.
+Preflight checks deployment settings without contacting the database, bucket or provider. Tests use isolated fixtures and Postgres-in-WASM; they do not use the Pi database or purchase generations.
 
-Fill in `.env.local` as each piece comes online:
+## Deploy and test
 
-- `DATABASE_URL` — any reachable Postgres (managed or self-hosted).
-- `HF_API_KEY_ID` / `HF_API_KEY_SECRET` — from the Higgsfield Console.
-  Leave unset to stay in mock mode.
-- `S3_*` — any S3-compatible bucket (AWS S3, R2, B2, or a self-hosted
-  MinIO instance) for durably storing generated clips and exports. Not
-  needed while in mock mode.
+[Public launch guide](docs/PUBLIC_LAUNCH.md) covers OAuth callbacks, migrations, private bucket policy/CORS, Cloudflare/Vercel/Pi choices and the independent user acceptance test. Browser export is the default. The optional Postgres render worker is disabled at the API unless `ENABLE_SERVER_EXPORTS=true`; enabling it requires intentional capacity planning.
 
-Then:
+[BYOK](docs/BYOK.md) explains credential ownership. [Brand assets](docs/BRAND_ASSETS.md) lists usable logos, favicon and social artwork.
 
-```bash
-pnpm db:push     # create tables from prisma/schema.prisma
-pnpm dev
-```
+## Collection experiments
 
-Open `http://localhost:3000` — it creates a project and drops you into
-the studio at `/studio/[projectId]`. Trait-based collections live at
-`/collections`.
-
-## Developing the Remotion composition in isolation
-
-```bash
-pnpm remotion:studio
-```
-
-Opens Remotion's own preview tool against `remotion/index.ts`, useful for
-iterating on the timeline composition without the rest of the app.
-
-## Status
-
-Studio + collections scaffold, typechecked and building clean, runnable
-in mock mode with just a Postgres connection. Not yet run against a real
-Higgsfield key, live Postgres, or real object storage — the model
-endpoint name and image-input format in `lib/higgsfield.ts` are marked
-unconfirmed and need verifying in the day-1 spike (see SCOPE.md).
+Mint Lab is an authenticated prototype for generic trait experiments. It is not a chain mint and does not enforce Bittyverse canon. The private [Bittyverse lane proposal](docs/BITTYVERSE_LANE.md) describes how still-first identity, hatch surprise and derived media can consume VeraGen without making the public studio depend on Bitty Dragons. Nothing in that proposal deploys a contract, creates NFTs or changes canon.
