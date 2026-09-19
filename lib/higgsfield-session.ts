@@ -19,7 +19,12 @@ export function sealCredentials(credentials: HiggsfieldCredentials, now = Date.n
 export function openCredentials(value: string, now = Date.now()): HiggsfieldCredentials | null {
   try {
     const bytes = Buffer.from(value, "base64url");
-    const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), bytes.subarray(0, 12));
+    // authTagLength pinned: Node otherwise accepts GCM tags as short as 4
+    // bytes, and a truncated tag is a forgeable one. Today a short tag can
+    // only occur with no ciphertext, so this was safe by accident; now it is
+    // safe by construction.
+    if (bytes.length < 29) return null;
+    const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), bytes.subarray(0, 12), { authTagLength: 16 });
     decipher.setAuthTag(bytes.subarray(12, 28));
     const payload = JSON.parse(Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString());
     if (payload.expires <= now || typeof payload.expires !== "number" || typeof payload.id !== "string" || typeof payload.secret !== "string" || typeof payload.userId !== "string" || typeof payload.sessionId !== "string") return null;

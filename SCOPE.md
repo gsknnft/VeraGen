@@ -270,72 +270,72 @@ here:
 
 ## Access control
 
-**The API has none wired, and that is the first thing to fix before this is
-reachable from anywhere but localhost.**
+**Wired.** Every data route goes through `withAccess` (`lib/access.ts`);
+`/api/auth/[...all]` is better-auth's own handler and is the one deliberate
+exception.
 
-`lib/access.ts` is written and correct — session check, origin check on
-writes, body-size bounds including chunked bodies, per-user write quota,
-ownership lookup, no provider errors serialized to clients, `private, no-store`
-on responses. It is called by **zero of the 19 API routes**, and `Project` and
-`Collection` carry no `ownerId` for `ownerFilter` to match on, so attaching it
-requires a schema migration first.
+`withAccess` runs, in order: session check (401 if absent), origin check on
+writes against `BETTER_AUTH_URL`, body-size bounds including chunked bodies,
+field validation (`lib/input.ts`), per-user write quota, ownership lookup, then
+the handler — with `private, no-store` on the response and no provider error
+ever serialized to a client. A resource owned by someone else returns **404,
+not 403**: existence is itself information.
 
-Until then, anything that can reach the host can list collections, mint,
-mutate a project by id, and start a synchronous Remotion export. Public source
-is not a publicly writable instance.
+Routes must not re-check the origin themselves. `withAccess` compares against
+`BETTER_AUTH_URL`; comparing against `req.nextUrl.origin` instead breaks behind
+any TLS-terminating proxy (Cloudflare Tunnel to `http://localhost:3000`), where
+that value is `http://…` and every write would 403.
 
-`middleware.ts` is a deploy guard, not a fix: it refuses to serve `/api/*` from
-a non-local hostname and says why, leaving `/api/auth` reachable so sign-in
-still works. Override with `VERAGEN_ALLOW_UNPROTECTED_API=1` only on a network
-you trust.
+Ownership resolves through real relations, never a caller-supplied parent id
+(`ownerFilter` in `lib/ownership.ts`). `Project.ownerId` and
+`Collection.ownerId` are **required**; clips, characters and exports are owned
+through their project, trait data and mints through their collection, media
+directly.
 
-The real fix, in order:
+`VERAGEN_DEV_USER` (see `.env.example`) stands in for a signed-in user during
+local development. `NODE_ENV=production` disables it first, and no variable can
+override that.
 
-1. ~~Add `ownerId` to `Project` and `Collection` with a relation to `User`.~~
-   **Done** — both models carry a nullable `ownerId` with an index and a
-   cascade relation to `User`, and the generated client exposes it in
-   `ProjectWhereInput`/`CollectionWhereInput`. It is nullable on purpose: the
-   change lands on a database with existing rows without a destructive
-   rewrite, and because no session id is null, pre-existing rows become
-   **invisible** to `ownerFilter` rather than public. Backfill them to an owner
-   and then tighten to required.
+## Database
 
-   This project uses `prisma db push`, not migration history — there is no
-   `prisma/migrations` directory and adding one would introduce a
-   `_prisma_migrations` table the workflow does not expect. `pnpm db:push`
-   applies it; the change is additive (nullable column + index) so it is not
-   destructive.
+Migrations, not `db push`: `prisma/migrations/` is the source of truth, applied
+with `pnpm exec prisma migrate deploy`. CI fails if `schema.prisma` and the
+migrations disagree, and the database test applies every migration in order to
+an in-process Postgres (PGlite).
 
-   **`veragen_db` exists and the schema is pushed** — 14 tables, with
-   `ownerId` on `Project` and `Collection`. It is its own database, separate
-   from `apefathers_db`, because `db push` writes all 14 models (including
-   better-auth's `user`/`session`/`account`) into whatever it is pointed at.
+Two databases on the droplet, both owned by `prisma_user`:
 
-   Two operational facts that are easy to lose:
+| Database      | Used by                                | Contents                  |
+| ------------- | -------------------------------------- | ------------------------- |
+| `veragen_db`  | production                             | kept empty until launch   |
+| `veragen_dev` | local development (`.env`, `.env.local`) | dev user, test projects |
 
-   - **The server's Postgres listens on loopback only** (`127.0.0.1:5432`,
-     `[::1]:5432`). Nothing is exposed publicly, which is correct — and it
-     means a `DATABASE_URL` containing the droplet's public IP can never
-     connect from a laptop, whatever the password. Reach it through a tunnel:
+Local dev must never point at `veragen_db`: the dev bypass creates a real user
+row in whatever it is connected to.
 
-     ```bash
-     ssh -N -L 5433:127.0.0.1:5432 droplet
-     # then use ...@127.0.0.1:5433/veragen_db
-     ```
+The droplet's Postgres listens on **loopback only**. A `DATABASE_URL` with the
+droplet's public IP can never connect from a laptop, whatever the password.
+Develop through the tunnel:
 
-   - **`.env` and `.env.local` disagree.** The Prisma CLI reads `.env`
-     (currently a dummy `localhost/loopface`), Next reads `.env.local` (the
-     droplet). So `prisma db push` and the running app can silently target
-     different databases. Point both at the same place, or keep `.env` as the
-     tunnelled URL and treat `.env.local` as app-only, deliberately.
-2. Wrap every route in `withAccess(kind, handler)`, passing `null` for the
-   collection-level routes that have no `:id`.
-3. Stop unscoped listing: `GET /api/collections` must filter by owner.
-4. Delete `middleware.ts` once the above is true — at that point it is the
-   weaker of the two checks and only adds confusion.
+```bash
+pnpm db:tunnel   # 127.0.0.1:5433 -> droplet 127.0.0.1:5432, auto-reconnects
+```
 
-Ownership scoping and anonymous access are separate problems. The middleware
-closes the second; only step 2 closes the first.
+Creating a migration: `prisma migrate dev` needs a shadow database it can
+terminate connections on, which `prisma_user` is not allowed to do. Diff the
+dev database (at the latest migration) against the schema instead, review the
+SQL, then deploy:
+
+```bash
+npx prisma migrate diff --from-url "$DATABASE_URL" \
+  --to-schema-datamodel prisma/schema.prisma --script \
+  > prisma/migrations/<timestamp>_<name>/migration.sql
+npx prisma migrate deploy
+```
+
+Still open: a dedicated `veragen_user` role, so VeraGen and ApeFathers stop
+sharing `prisma_user`. `prisma_user` cannot create roles, so this needs a
+Postgres superuser (root on the droplet).
 
 ## Known constraints worth knowing about before shipping
 
@@ -350,9 +350,10 @@ closes the second; only step 2 closes the first.
   couple of very short clips). The 15s export cap keeps v1 inside a
   reasonable window; treat that cap as a technical constraint as much as
   a monetization lever for now.
-- **No auth yet**: the export cap and rate limiting are IP-based, not
-  account-based, because there's no login. A tiered payment structure
-  needs accounts before it can gate anything per-user.
+- **Quotas are per-account**: writes, generations and uploads are rate-limited
+  on the signed-in user id, so a tiered payment structure has a real subject
+  to gate on. Nothing is billed yet: generation is BYOK, export runs in the
+  browser, and storage is capped at 512 MB per user.
 
 ## Deploying: Vercel + a custom subdomain
 

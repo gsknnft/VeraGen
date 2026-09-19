@@ -30,12 +30,16 @@ export const PATCH = withAccess("project", async (
 ) => {
   const { id } = await params;
   const body = (await req.json()) as {
+    name?: string;
     styleLock?: string;
     ctaText?: string;
     template?: string;
   };
 
-  const data: { styleLock?: string | null; ctaText?: string | null; template?: BrandTemplate } = {};
+  const data: { name?: string; styleLock?: string | null; ctaText?: string | null; template?: BrandTemplate } = {};
+  // Length is already bounded by validJsonInput in withAccess. A blank name is
+  // ignored rather than stored, so a project always has something to show.
+  if (typeof body.name === "string" && body.name.trim()) data.name = body.name.trim();
   if ("styleLock" in body) data.styleLock = body.styleLock || null;
   if ("ctaText" in body) data.ctaText = body.ctaText || null;
   if (typeof body.template === "string" && VALID_TEMPLATES.includes(body.template as BrandTemplate)) {
