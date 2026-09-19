@@ -9,8 +9,30 @@ export function providerUrl(value: string, hosts: string[]) {
   if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443") || isIP(url.hostname) || !hosts.includes(url.hostname)) throw new Error("Unapproved media origin.");
   return url;
 }
+/**
+ * The provider's result host is only knowable from a real, paid response. When
+ * it is not on the allowlist, the operator needs its name to fix
+ * HIGGSFIELD_MEDIA_HOSTS, and nothing else would surface it: route handlers
+ * deliberately show users a generic message. So it is logged here, server-side,
+ * as a hostname only. Never the full URL: result URLs are bearer links.
+ */
+export class UnapprovedMediaHost extends Error {
+  constructor(readonly hostname: string) { super("Unapproved media origin."); }
+}
 export async function downloadProviderVideo(value: string): Promise<Buffer> {
-  const url = providerUrl(value, (process.env.HIGGSFIELD_MEDIA_HOSTS ?? "").split(",").map(x => x.trim()).filter(Boolean));
+  const hosts = (process.env.HIGGSFIELD_MEDIA_HOSTS ?? "").split(",").map(x => x.trim()).filter(Boolean);
+  let url: URL;
+  try {
+    url = providerUrl(value, hosts);
+  } catch (err) {
+    let hostname = "(unparseable URL)";
+    try { hostname = new URL(value).hostname; } catch {}
+    console.warn(
+      `[veragen] Refused to fetch a finished generation from "${hostname}": not in HIGGSFIELD_MEDIA_HOSTS (${hosts.length ? hosts.join(", ") : "empty"}). ` +
+        "If this is the provider's real output CDN, add it and restart; the clip is preserved and completes on the next status check.",
+    );
+    throw err instanceof Error && hostname !== "(unparseable URL)" ? new UnapprovedMediaHost(hostname) : err;
+  }
   const addresses = await lookup(url.hostname, { all: true });
   if (!addresses.length || addresses.some(a => blocked.check(a.address, a.family === 4 ? "ipv4" : "ipv6"))) throw new Error("Invalid media destination.");
   // Pin the validated address, retaining the original hostname for TLS verification.

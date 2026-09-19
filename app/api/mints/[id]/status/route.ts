@@ -3,6 +3,7 @@ import { getVideoMetadata } from "@remotion/renderer";
 import { prisma } from "@/lib/db";
 import { getJobStatus } from "@/lib/higgsfield";
 import { persistRemoteVideo, signedMediaUrl } from "@/lib/storage";
+import { UnapprovedMediaHost } from "@/lib/safe-download";
 import { withAccess } from "@/lib/access";
 
 export const runtime = "nodejs";
@@ -58,7 +59,12 @@ export const GET = withAccess("mint", async (
       include: { traits: { include: { traitOption: true } } },
     });
     return NextResponse.json(updated);
-  } catch {
+  } catch (err) {
+    // See the clip status route: a setup gap is not the user's session.
+    if (err instanceof UnapprovedMediaHost || (err instanceof Error && err.message === "Private storage is not configured.")) {
+      return NextResponse.json({ error: "Your mint finished generating. This server isn't set up to save it yet; it's preserved and will appear once setup is complete." }, { status: 503 });
+    }
+    console.error(`[veragen] mint ${id} status check failed:`, err instanceof Error ? `${err.name}: ${err.message}` : err);
     return NextResponse.json({ error: "Could not check this job. Reconnect the original Higgsfield account if your session expired; the job is preserved." }, { status: 503 });
   }
 });

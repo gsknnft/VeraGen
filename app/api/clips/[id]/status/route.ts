@@ -3,6 +3,7 @@ import { getVideoMetadata } from "@remotion/renderer";
 import { prisma } from "@/lib/db";
 import { getJobStatus } from "@/lib/higgsfield";
 import { persistRemoteVideo, signedMediaUrl } from "@/lib/storage";
+import { UnapprovedMediaHost } from "@/lib/safe-download";
 import { withAccess } from "@/lib/access";
 
 export const runtime = "nodejs";
@@ -66,7 +67,14 @@ export const GET = withAccess("clip", async (
       },
     });
     return NextResponse.json(updated);
-  } catch {
+  } catch (err) {
+    // A finished-but-unsaveable clip is a setup problem on our side, not the
+    // user's session. Telling them to reconnect their account would send them
+    // to fix the wrong thing while the provider's result link ages.
+    if (err instanceof UnapprovedMediaHost || (err instanceof Error && err.message === "Private storage is not configured.")) {
+      return NextResponse.json({ error: "Your clip finished generating. This server isn't set up to save it yet; it's preserved and will appear once setup is complete." }, { status: 503 });
+    }
+    console.error(`[veragen] clip ${id} status check failed:`, err instanceof Error ? `${err.name}: ${err.message}` : err);
     return NextResponse.json({ error: "Could not check this job. Reconnect the original Higgsfield account if your session expired; the job is preserved." }, { status: 503 });
   }
 });
