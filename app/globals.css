@@ -447,3 +447,9 @@ main.studio-main:has(.studio-layout){max-width:1180px}
 }
 .vibe-chip.active { border-color: var(--brand-accent); color: var(--brand-accent); }
 
+/* Make growth tabs */
+.make-wizard { display: grid; gap: 16px; }
+.make-unavailable { display: grid; gap: 12px; }
+.make-mint-claim { display: grid; gap: 10px; margin-top: 8px; padding-top: 12px; border-top: 1px solid #2a2522; }
+.make-claim-links { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.make-mint-tile { display: grid; gap: 6px; align-content: start; }
