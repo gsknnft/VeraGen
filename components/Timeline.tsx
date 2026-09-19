@@ -58,7 +58,7 @@ export function Timeline({
   }
 
   if (clips.length === 0) {
-    return <p className="subtitle">No clips yet — generate one to start the timeline.</p>;
+    return <p className="subtitle">No clips yet — add one from your NFT, an upload, or a generation.</p>;
   }
 
   return (

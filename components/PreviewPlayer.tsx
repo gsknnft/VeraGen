@@ -26,7 +26,7 @@ export function PreviewPlayer({
     return (
       <div className="preview-empty" style={{ aspectRatio: `${ASPECTS[aspect].width} / ${ASPECTS[aspect].height}` }}>
         <img src="/brand/veragen-mark.svg" alt="" width={54} height={54} />
-        <strong>Your next frame starts here.</strong><span>Generate a clip to begin your edit.</span>
+        <strong>Your next frame starts here.</strong><span>Add a clip to begin your edit.</span>
       </div>
     );
   }

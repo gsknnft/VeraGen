@@ -218,7 +218,7 @@ export function CollectionClient({
       </section>
 
       <section>
-        <p className="subtitle">
+        <p className="hint">
           Optional: fold a wallet address / tx hash into the mint seed, so
           the roll is tied to that specific action instead of just a
           sequence number.

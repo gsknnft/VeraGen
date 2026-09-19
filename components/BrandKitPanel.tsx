@@ -87,7 +87,7 @@ export function BrandKitPanel({
         onChange={(e) => onCtaTextChange(e.target.value)}
       />
 
-      <div className="vibe-grid">
+      <div className="template-grid">
         {TEMPLATE_OPTIONS.map((t) => (
           <button
             key={t.id}

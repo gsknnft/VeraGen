@@ -15,6 +15,6 @@ export function StudioLibrary({ projects, starterAvailable = false }: { projects
     catch { setError("Could not open the example project. Please try again."); setBusy(false); }
   }}>{busy ? "Opening…" : "Try it with example clips"}</button></div>}
   {error && <p role="alert">{error}</p>}
-  <h2>Your projects</h2>{projects.length ? <div className="project-library">{projects.map(project => <Link className="project-card" key={project.id} href={`/studio/${project.id}`}><strong>{project.name}</strong><span>{new Date(project.updatedAt).toLocaleDateString()}</span><span>Continue editing →</span></Link>)}</div> : <p>Your first finished video starts with an image or an idea.</p>}</>;
+  <h2>Your projects</h2>{projects.length ? <div className="project-library">{projects.map(project => <Link className="project-card" key={project.id} href={`/studio/${project.id}`}><strong>{project.name}</strong><span>{new Date(project.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}</span><span>Continue editing →</span></Link>)}</div> : <p>Your first finished video starts with an image or an idea.</p>}</>;
 }
 

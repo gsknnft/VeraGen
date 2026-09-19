@@ -19,6 +19,13 @@ import {
 } from "@/remotion/durationUtils";
 
 const POLL_INTERVAL_MS = 3000;
+
+type AddTab = "nft" | "upload" | "generate";
+const ADD_TABS: { id: AddTab; label: string }[] = [
+  { id: "nft", label: "Your NFT" },
+  { id: "upload", label: "Upload" },
+  { id: "generate", label: "Generate" },
+];
 const STYLE_LOCK_DEBOUNCE_MS = 600;
 const CAPTION_DEBOUNCE_MS = 500;
 
@@ -45,6 +52,7 @@ export function StudioClient({
   generation: GenerationMode;
 }) {
   const [generation, setGeneration] = useState<GenerationMode>(initialGeneration);
+  const [addTab, setAddTab] = useState<AddTab>(initialGeneration === "none" ? "upload" : "generate");
   const [clips, setClips] = useState<ClipData[]>(initialClips);
   const [characters, setCharacters] = useState<CharacterData[]>(initialCharacters);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
@@ -241,86 +249,112 @@ export function StudioClient({
     characters.find((c) => c.id === selectedCharacterId)?.name ?? null;
 
   return (
-    <div className="studio">
-      {saveError && <p role="alert" className="error">{saveError}</p>}
-      {pollError && <p role="status" className="error">{pollError}</p>}
-      <PreviewPlayer clips={completedClips} brand={brand} projectName={projectName} aspect={aspect} />
+    <div className="studio studio-layout">
+      {/* Stage: what the video IS — preview, export, and the edit itself. */}
+      <div className="studio-stage">
+        {saveError && <p role="alert" className="error">{saveError}</p>}
+        {pollError && <p role="status" className="error">{pollError}</p>}
+        <PreviewPlayer clips={completedClips} brand={brand} projectName={projectName} aspect={aspect} />
 
-      <Timeline
-        clips={clips}
-        onReorder={handleReorder}
-        onTrimChange={handleTrimChange}
-        onTransitionChange={handleTransitionChange}
-        onCaptionChange={handleCaptionChange}
-        onDelete={handleDelete}
-      />
+        <div className="export-row">
+          <select aria-label="Preview and export format" value={aspect} onChange={(e) => setAspect(e.target.value as Aspect)}>
+            {Object.keys(ASPECTS).map((a) => (
+              <option key={a} value={a}>
+                {a} {a === "9:16" ? "(Reels/TikTok)" : a === "1:1" ? "(Feed)" : "(YouTube)"}
+              </option>
+            ))}
+          </select>
+          <button className="primary" onClick={handleExport} disabled={exporting || completedClips.length === 0}>
+            {exporting ? (exportStatus ?? "Rendering…") : "Export MP4"}
+          </button>
+          {exporting && <button onClick={() => exportAbort.current?.abort()}>Cancel export</button>}
+          {exportUrl && <button onClick={shareExport}>Share video</button>}
+          {exportError && <p className="error">{exportError}</p>}
+          {exportUrl && (
+            <a className="download-link" href={exportUrl} download="veragen-social.mp4">
+              Download export
+            </a>
+          )}
+        </div>
+        {completedClips.length === 0 && <p className="hint">Export renders on this device once your timeline has a finished clip.</p>}
 
-      <label className="style-lock">
-        World style lock
-        <input
-          type="text"
-          placeholder="e.g. shot on 35mm, teal-and-orange grade, neon rim light"
-          value={styleLock}
-          onChange={(e) => handleStyleLockChange(e.target.value)}
+        <Timeline
+          clips={clips}
+          onReorder={handleReorder}
+          onTrimChange={handleTrimChange}
+          onTransitionChange={handleTransitionChange}
+          onCaptionChange={handleCaptionChange}
+          onDelete={handleDelete}
         />
-      </label>
+      </div>
 
-      <NftPicker
-        projectId={projectId}
-        onCreated={(c) => {
-          // Picking the same token again returns the existing character.
-          setCharacters((prev) => (prev.some((p) => p.id === c.id) ? prev : [...prev, c]));
-          setSelectedCharacterId(c.id);
-        }}
-      />
+      {/* Controls: every way to get a clip in one place, then the brand. */}
+      <div className="studio-controls">
+        <section className="panel" aria-labelledby="add-clip-title">
+          <h2 id="add-clip-title" className="panel-title">Add a clip</h2>
+          <div className="tabs" role="tablist" aria-label="Ways to add a clip">
+            {ADD_TABS.map((t) => (
+              <button key={t.id} type="button" role="tab" aria-selected={addTab === t.id} onClick={() => setAddTab(t.id)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
 
-      <CharacterPanel
-        projectId={projectId}
-        characters={characters}
-        selectedId={selectedCharacterId}
-        onSelect={setSelectedCharacterId}
-        onCreated={(c) => setCharacters((prev) => [...prev, c])}
-      />
+          {addTab === "nft" && (
+            <NftPicker
+              projectId={projectId}
+              onCreated={(c) => {
+                // Picking the same token again returns the existing character.
+                setCharacters((prev) => (prev.some((p) => p.id === c.id) ? prev : [...prev, c]));
+                setSelectedCharacterId(c.id);
+                // The NFT is now a character; generating is how it moves.
+                setAddTab("generate");
+              }}
+            />
+          )}
 
-      <UploadClip projectId={projectId} onUploaded={(clip) => setClips((prev) => [...prev, clip])} />
+          {addTab === "upload" && <UploadClip projectId={projectId} onUploaded={(clip) => setClips((prev) => [...prev, clip])} />}
 
-      <GeneratePanel
-        onGenerate={handleGenerate}
-        disabled={generation === "none"}
-        generation={generation}
-        selectedCharacterId={selectedCharacterId}
-        selectedCharacterName={selectedCharacterName}
-      />
+          {addTab === "generate" && (
+            <>
+              <CharacterPanel
+                projectId={projectId}
+                characters={characters}
+                selectedId={selectedCharacterId}
+                onSelect={setSelectedCharacterId}
+                onCreated={(c) => setCharacters((prev) => [...prev, c])}
+              />
+              <label className="style-lock">
+                Style lock — added to every generated clip in this project
+                <input
+                  type="text"
+                  placeholder="e.g. shot on 35mm, teal-and-orange grade, neon rim light"
+                  value={styleLock}
+                  onChange={(e) => handleStyleLockChange(e.target.value)}
+                />
+              </label>
+              <GeneratePanel
+                onGenerate={handleGenerate}
+                disabled={generation === "none"}
+                generation={generation}
+                selectedCharacterId={selectedCharacterId}
+                selectedCharacterName={selectedCharacterName}
+              />
+            </>
+          )}
+        </section>
 
-      <BrandKitPanel
-        projectId={projectId}
-        logoUrl={brandLogoUrl}
-        ctaText={ctaText}
-        template={template}
-        onLogoUploaded={setBrandLogoUrl}
-        onCtaTextChange={handleCtaTextChange}
-        onTemplateChange={handleTemplateChange}
-      />
-
-      <div className="export-row">
-        <select aria-label="Preview and export format" value={aspect} onChange={(e) => setAspect(e.target.value as Aspect)}>
-          {Object.keys(ASPECTS).map((a) => (
-            <option key={a} value={a}>
-              {a} {a === "9:16" ? "(Reels/TikTok)" : a === "1:1" ? "(Feed)" : "(YouTube)"}
-            </option>
-          ))}
-        </select>
-        <button className="primary" onClick={handleExport} disabled={exporting || completedClips.length === 0}>
-          {exporting ? (exportStatus ?? "Rendering…") : "Export MP4 on this device"}
-        </button>
-        {exporting && <button onClick={() => exportAbort.current?.abort()}>Cancel export</button>}
-        {exportUrl && <button onClick={shareExport}>Share video</button>}
-        {exportError && <p className="error">{exportError}</p>}
-        {exportUrl && (
-          <a className="download-link" href={exportUrl} download="veragen-social.mp4">
-            Download export
-          </a>
-        )}
+        <section className="panel">
+          <BrandKitPanel
+            projectId={projectId}
+            logoUrl={brandLogoUrl}
+            ctaText={ctaText}
+            template={template}
+            onLogoUploaded={setBrandLogoUrl}
+            onCtaTextChange={handleCtaTextChange}
+            onTemplateChange={handleTemplateChange}
+          />
+        </section>
       </div>
     </div>
   );

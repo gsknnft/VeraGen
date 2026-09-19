@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatEther, parseEther } from "viem";
 
 export interface ClaimConfig {
@@ -27,7 +27,11 @@ export function ClaimSettings({ collectionId, initial }: { collectionId: string;
   const [error, setError] = useState<string | null>(null);
 
   const live = saved.sponsoredPerDay > 0 && !!saved.contractAddress && !!saved.chainNetwork;
-  const claimUrl = typeof window === "undefined" ? `/claim/${collectionId}` : `${window.location.origin}/claim/${collectionId}`;
+  // Filled in after mount: the server has no window, and rendering the origin
+  // there and not here would make the HTML disagree (a hydration error).
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
+  const claimUrl = `${origin}/claim/${collectionId}`;
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
