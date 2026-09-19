@@ -7,6 +7,7 @@ import { UploadClip } from "./UploadClip";
 import { Timeline, type ClipData } from "./Timeline";
 import { PreviewPlayer } from "./PreviewPlayer";
 import { CharacterPanel, type CharacterData } from "./CharacterPanel";
+import { NftPicker } from "./NftPicker";
 import { BrandKitPanel } from "./BrandKitPanel";
 import {
   ASPECTS,
@@ -263,6 +264,15 @@ export function StudioClient({
           onChange={(e) => handleStyleLockChange(e.target.value)}
         />
       </label>
+
+      <NftPicker
+        projectId={projectId}
+        onCreated={(c) => {
+          // Picking the same token again returns the existing character.
+          setCharacters((prev) => (prev.some((p) => p.id === c.id) ? prev : [...prev, c]));
+          setSelectedCharacterId(c.id);
+        }}
+      />
 
       <CharacterPanel
         projectId={projectId}

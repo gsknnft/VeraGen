@@ -62,10 +62,15 @@ model Character {
   // the same face consistent across many clips.
   referenceImageUrl String
   notes             String?
+  /// "network:contract:tokenId" when this character is a holder's NFT, whose
+  /// ownership was re-verified against a linked wallet when it was added.
+  /// Provenance for holder benefits, and one character per token per project.
+  sourceNft         String?
   clips             Clip[]
   createdAt         DateTime @default(now())
 
   @@index([projectId])
+  @@unique([projectId, sourceNft])
 }
 
 enum ClipStatus {
@@ -319,6 +324,7 @@ model User {
   projects      Project[]
   collections   Collection[]
   mediaAssets   MediaAsset[]
+  wallets       LinkedWallet[]
 
   @@unique([email])
   @@map("user")
@@ -358,6 +364,27 @@ model Account {
 
   @@index([userId])
   @@map("account")
+}
+
+/// A wallet the user has PROVEN they control, by signing an EIP-4361 (Sign-In
+/// with Ethereum) message bound to their account. Distinct from better-auth's
+/// own SIWE plugin, which signs in as a separate wallet user: this links a
+/// wallet to the account the person already has, so "pick your NFT" and
+/// holder benefits attach to one identity.
+///
+/// `address` is unique across all users: one wallet, one account. Stored
+/// checksummed (EIP-55) so comparisons are exact.
+model LinkedWallet {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  address   String   @unique
+  /// Chain the proof was signed on. Ownership is per-address; this records
+  /// what was actually signed.
+  chainId   Int
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Verification {

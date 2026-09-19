@@ -33,25 +33,49 @@ export async function downloadProviderVideo(value: string): Promise<Buffer> {
     );
     throw err instanceof Error && hostname !== "(unparseable URL)" ? new UnapprovedMediaHost(hostname) : err;
   }
+  return fetchPinned(url, { maxBytes: 64 * 1024 * 1024, timeoutMs: 60_000, accept: type => type.startsWith("video/") });
+}
+
+/**
+ * GET an already-approved https URL, connecting only to the address that was
+ * checked. Shared by every download from a third party, so there is exactly
+ * one implementation of the guard:
+ *   - DNS is resolved once and every address checked against private ranges
+ *   - the connection is pinned to that address (no rebinding between check
+ *     and connect), keeping the hostname for TLS verification
+ *   - redirects are not followed (anything but 200 is refused)
+ *   - content type, size and total time are bounded
+ */
+async function fetchPinned(url: URL, opts: { maxBytes: number; timeoutMs: number; accept: (contentType: string) => boolean }): Promise<Buffer> {
   const addresses = await lookup(url.hostname, { all: true });
   if (!addresses.length || addresses.some(a => blocked.check(a.address, a.family === 4 ? "ipv4" : "ipv6"))) throw new Error("Invalid media destination.");
-  // Pin the validated address, retaining the original hostname for TLS verification.
   const address = addresses[0];
   return new Promise((resolve, reject) => {
     const request = https.get(url, { lookup: (_host, options, callback) => {
       if (options.all) callback(null, [address]);
       else callback(null, address.address, address.family);
     } }, response => {
-      const max = 64 * 1024 * 1024;
-      if (response.statusCode !== 200 || Number(response.headers["content-length"]) > max || !response.headers["content-type"]?.startsWith("video/")) { response.destroy(); reject(new Error("Invalid media response.")); return; }
+      const type = response.headers["content-type"] ?? "";
+      if (response.statusCode !== 200 || Number(response.headers["content-length"]) > opts.maxBytes || !opts.accept(type)) { response.destroy(); reject(new Error("Invalid media response.")); return; }
       const chunks: Buffer[] = []; let size = 0;
-      response.on("data", (chunk: Buffer) => { size += chunk.length; if (size > max) request.destroy(new Error("Video too large.")); else chunks.push(chunk); });
+      response.on("data", (chunk: Buffer) => { size += chunk.length; if (size > opts.maxBytes) request.destroy(new Error("Media too large.")); else chunks.push(chunk); });
       response.on("end", () => resolve(Buffer.concat(chunks)));
       response.on("error", () => reject(new Error("Media transfer failed.")));
     });
-    const timeout = setTimeout(() => request.destroy(new Error("Media transfer timed out.")), 60000);
+    const timeout = setTimeout(() => request.destroy(new Error("Media transfer timed out.")), opts.timeoutMs);
     request.on("close", () => clearTimeout(timeout));
     request.on("error", () => reject(new Error("Media transfer failed.")));
   });
 }
 
+/**
+ * An NFT image, from the indexer's own image cache only. NFT metadata points
+ * anywhere its creator likes (any host, IPFS, data URIs), so the original URL
+ * is never fetched: only the indexer's cached copy, whose host is ours to
+ * approve. Override with NFT_IMAGE_HOSTS if the provider changes CDNs.
+ */
+export async function downloadNftImage(value: string): Promise<Buffer> {
+  const hosts = (process.env.NFT_IMAGE_HOSTS ?? "nft-cdn.alchemy.com").split(",").map(x => x.trim()).filter(Boolean);
+  const url = providerUrl(value, hosts);
+  return fetchPinned(url, { maxBytes: 16 * 1024 * 1024, timeoutMs: 30_000, accept: type => type.startsWith("image/") });
+}
