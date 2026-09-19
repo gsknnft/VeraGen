@@ -13,7 +13,7 @@ Working name: VeraGen. Generated with built-in imagegen on 2026-09-17. No API/CL
 - `public/brand/source/`: untouched generated hero/logo/symbol/share PNGs. Generated transparent logos have edge artifacts; ship the SVG versions instead.
 - `assets/concepts/`: perfume and editorial images retained at user request, not website content.
 
-Visit `/brand` for the downloadable kit; `/` is the website and `/studio` the deliberate create/resume entry. Existing Loopface browser storage key remains readable. Display naming is provisional; no GitHub repository rename or visibility change performed. Do not use Bitty art for this independent brand.
+Visit `/brand` for the downloadable kit; `/` is the website and `/studio` the deliberate create/resume entry. Existing VeraGen browser storage key remains readable. Display naming is provisional; no GitHub repository rename or visibility change performed. Do not use Bitty art for this independent brand.
 
 Palette: charcoal #101011, vermilion #FF713E, ivory #F2EEE8, warm highlight #FCA47C. Use clear sans-serif UI type; an italic serif accent belongs only in large website headlines. No fake example outputs, customer counts or generated-video claims.
 
@@ -40,4 +40,3 @@ Use case: ads-marketing. Single vertical 3:4 editorial campaign concept still fo
 ## Archived editorial concept
 
 Use case: ads-marketing. Single vertical 3:4 cinematic editorial concept still for independent video studio inspiration gallery. An adult female dancer in a flowing electric-cobalt tailored coat caught mid-turn on a rain-wet dark city rooftop at blue hour. Strong three-quarter silhouette, elegant natural anatomy, believable fabric folds, one sharp subject and restrained trailing fabric motion, hard amber rim light, distant warm windows, expansive dark cyan atmosphere. Fashion film frame, sophisticated photographic art direction, rich blue balanced against warm orange light, no neon signage, no cyberpunk clutter. Subject centered for responsive cropping with generous headroom. No text, logo, watermark, UI, famous person, copyrighted character, dragons, Bittyverse elements. This is an illustrative concept still, not an app-generated video example.
-

@@ -132,9 +132,9 @@ pages carry an explicit disclaimer banner.
   both `packages/art-engine` (DNA generation) and `packages/bittyverse`
   (the maturation resolver) before being pulled into one shared home —
   `bittyverse` now consumes it rather than hosting it, which is exactly
-  the shape loopface's copy should eventually collapse into too. loopface
+  the shape VeraGen's copy should eventually collapse into too. VeraGen
   is a standalone repo outside the SigilNet pnpm workspace, so it can't
-  `workspace:*`-depend on it directly. If loopface ever moves into the
+  `workspace:*`-depend on it directly. If VeraGen ever moves into the
   SigilNet monorepo, or `@gsknnft/weighted-roll` gets published, delete
   this file for the real import. Until then the two must be kept in sync
   by hand — a real, acknowledged tradeoff, not an oversight.
@@ -422,5 +422,3 @@ A public URL where a stranger can write a prompt, optionally drop in a
 face photo, generate a few clips, arrange and trim them on a timeline,
 watch the arrangement play back live, and export a finished video —
 without an account, in one sitting.
-
-
