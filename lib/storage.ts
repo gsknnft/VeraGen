@@ -170,8 +170,13 @@ export async function claimUpload(ownerId: string, pendingKey: string): Promise<
   return { reference: `/api/media/${asset.id}`, size };
 }
 
-export async function persistRemoteVideo(remoteUrl: string, key: string): Promise<string> {
+/**
+ * `ownerId` should be passed whenever the owner is not simply "whoever is
+ * signed in" — e.g. a claimed mint's video belongs to the holder even when
+ * the collection owner is the one whose poll completed it.
+ */
+export async function persistRemoteVideo(remoteUrl: string, key: string, ownerId?: string): Promise<string> {
   const buffer = await downloadProviderVideo(remoteUrl);
-  return uploadBuffer(key, buffer, "video/mp4");
+  return uploadBuffer(key, buffer, "video/mp4", ownerId);
 }
 

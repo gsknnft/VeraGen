@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ClaimSettings, type ClaimConfig } from "./ClaimSettings";
 
 interface TraitOption {
   id: string;
@@ -41,12 +42,14 @@ export function CollectionClient({
   initialStyleLock,
   initialCategories,
   initialMints,
+  initialClaims,
 }: {
   collectionId: string;
   initialName: string;
   initialStyleLock: string | null;
   initialCategories: TraitCategory[];
   initialMints: MintData[];
+  initialClaims: ClaimConfig;
 }) {
   const [categories, setCategories] = useState<TraitCategory[]>(initialCategories);
   const [mints, setMints] = useState<MintData[]>(initialMints);
@@ -272,6 +275,10 @@ export function CollectionClient({
             </div>
           ))}
         </div>
+      </section>
+
+      <section>
+        <ClaimSettings collectionId={collectionId} initial={initialClaims} />
       </section>
     </div>
   );

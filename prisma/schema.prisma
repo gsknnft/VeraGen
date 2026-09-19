@@ -218,6 +218,23 @@ model Collection {
   // tightened, so there was nothing to backfill. An ownerless row cannot exist.
   ownerId         String
   owner           User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // --- Mint-funded generation (see lib/mint-proof.ts, lib/sponsor.ts) ------
+  // Holders who mint on this collection's contract can claim one generation
+  // per minted token, paid by the sponsor rather than their own key. VeraGen
+  // verifies on-chain that the mint happened, on THIS contract, to a wallet
+  // the claimant has linked, paying at least mintMinValueWei. Splitting part
+  // of the mint price to fund generation is the collection contract's job —
+  // auditable on-chain, not something VeraGen can enforce.
+  /// NftNetwork key, e.g. "ethereum" or "base".
+  chainNetwork       String?
+  /// The collection's ERC-721 contract, checksummed.
+  contractAddress    String?
+  /// Sponsored generations per 24h window across all holders. 0 = claims off.
+  sponsoredPerDay    Int             @default(0)
+  /// Minimum native value the mint tx must have paid, in wei (decimal string).
+  mintMinValueWei    String?
+
   traitCategories TraitCategory[]
   mints           Mint[]
   createdAt       DateTime        @default(now())
@@ -295,10 +312,17 @@ model Mint {
   videoUrl        String?
   durationSeconds Float?
 
+  /// The holder who claimed this mint with an on-chain mint proof; null for
+  /// mints the collection owner generated in Mint Lab. For a claimed mint,
+  /// mintNumber IS the on-chain tokenId, so a token can be claimed only once.
+  claimedBy   User?       @relation("ClaimedMints", fields: [claimedById], references: [id], onDelete: SetNull)
+  claimedById String?
+
   traits    MintTrait[]
   createdAt DateTime    @default(now())
 
   @@unique([collectionId, mintNumber])
+  @@index([claimedById])
 }
 
 model MintTrait {
@@ -325,6 +349,7 @@ model User {
   collections   Collection[]
   mediaAssets   MediaAsset[]
   wallets       LinkedWallet[]
+  claimedMints  Mint[]         @relation("ClaimedMints")
 
   @@unique([email])
   @@map("user")

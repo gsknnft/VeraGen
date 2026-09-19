@@ -49,6 +49,12 @@ export default async function CollectionPage({
         initialStyleLock={collection.styleLock}
         initialCategories={collection.traitCategories}
         initialMints={collection.mints}
+        initialClaims={{
+          chainNetwork: collection.chainNetwork,
+          contractAddress: collection.contractAddress,
+          sponsoredPerDay: collection.sponsoredPerDay,
+          mintMinValueWei: collection.mintMinValueWei,
+        }}
       />
     </main>
   );

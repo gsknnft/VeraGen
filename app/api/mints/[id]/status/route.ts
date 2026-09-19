@@ -16,14 +16,17 @@ export const GET = withAccess("mint", async (
 
   const mint = await prisma.mint.findUnique({
     where: { id },
-    include: { traits: { include: { traitOption: true } } },
+    include: { traits: { include: { traitOption: true } }, collection: { select: { ownerId: true } } },
   });
   if (!mint) {
     return NextResponse.json({ error: "Mint not found" }, { status: 404 });
   }
+  // The collection is loaded only to know who owns the media. It is never
+  // returned: a holder has no business learning the owner's account id.
+  const { collection: _owner, ...publicMint } = mint;
 
   if (mint.status !== "processing") {
-    return NextResponse.json(mint);
+    return NextResponse.json(publicMint);
   }
   if (!mint.higgsfieldRequestId) {
     return NextResponse.json({ error: "Mint has no pending job" }, { status: 400 });
@@ -33,7 +36,7 @@ export const GET = withAccess("mint", async (
     const status = await getJobStatus(mint.higgsfieldRequestId);
 
     if (status.status === "processing") {
-      return NextResponse.json(mint);
+      return NextResponse.json(publicMint);
     }
 
     if (status.status === "failed") {
@@ -48,8 +51,11 @@ export const GET = withAccess("mint", async (
     let durableUrl = status.videoUrl;
     let duration = status.durationSeconds ?? 5;
     if (!status.skipPersist) {
-      durableUrl = await persistRemoteVideo(status.videoUrl, `mints/${id}.mp4`);
-      const metadata = await getVideoMetadata(await signedMediaUrl(durableUrl, session.user.id));
+      // Deterministic owner, whoever's poll completed it: a claimed mint's
+      // video is the holder's; otherwise the collection owner's.
+      const mediaOwner = mint.claimedById ?? mint.collection.ownerId;
+      durableUrl = await persistRemoteVideo(status.videoUrl, `mints/${id}.mp4`, mediaOwner);
+      const metadata = await getVideoMetadata(await signedMediaUrl(durableUrl, mediaOwner));
       duration = metadata.durationInSeconds ?? 5;
     }
 

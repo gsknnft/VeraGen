@@ -1,12 +1,9 @@
 import { getHiggsfieldCredentials } from "@/lib/higgsfield-credentials";
 import { NextRequest, NextResponse } from "next/server";
-import { resolveWeightedTraits } from "@gsknnft/weighted-roll";
 import { prisma } from "@/lib/db";
-import { submitVideoJob } from "@/lib/higgsfield";
 import { consumeQuota } from "@/lib/quota";
-import { readMedia, signedMediaUrl, uploadBuffer } from "@/lib/storage";
-import { compositeLayers } from "@/lib/composite";
-import { mintLabAllowed, missingLayers, mintMotionPrompt } from "@/lib/mint-lab";
+import { mintLabAllowed } from "@/lib/mint-lab";
+import { generateMint, mintableCategories } from "@/lib/mint-generate";
 import { withAccess } from "@/lib/access";
 
 export const runtime = "nodejs";
@@ -32,19 +29,13 @@ export const POST = withAccess("collection", async (
 
   const collection = await prisma.collection.findUnique({
     where: { id: collectionId },
-    include: { traitCategories: { orderBy: { sortOrder: "asc" }, include: { options: true } } },
+    include: { traitCategories: { include: { options: true } } },
   });
   if (!collection) {
     return NextResponse.json({ error: "Collection not found" }, { status: 404 });
   }
-  const categories = collection.traitCategories.filter(c => c.options.length > 0);
-  if (categories.length === 0) {
-    return NextResponse.json({ error: "Add at least one trait category before minting" }, { status: 400 });
-  }
-  const missing = missingLayers(categories);
-  if (missing.length > 0) {
-    return NextResponse.json({ error: `Every trait option needs layer art before minting. Missing: ${missing.slice(0, 5).join("; ")}${missing.length > 5 ? ` and ${missing.length - 5} more` : ""}.` }, { status: 400 });
-  }
+  const mintable = mintableCategories(collection);
+  if (!mintable.ok) return NextResponse.json({ error: mintable.error }, { status: 400 });
 
   const body = (await req.json().catch(() => ({}))) as {
     mintNumber?: number;
@@ -75,49 +66,12 @@ export const POST = withAccess("collection", async (
   // mint action instead of just a sequence number. This is seed *input*, not
   // identity — the Mint's own id/mintNumber is authoritative, matching
   // bittyverse's "persistent subject is a characterId, not a wallet" rule.
-  // resolveWeightedTraits is @gsknnft/weighted-roll, the one shared
-  // implementation (hardened hash: adjacent mint numbers no longer draw
-  // near-identical rolls).
   const seed = [collectionId, mintNumber, walletAddress, txHash].filter(Boolean).join(":");
-  const picks = resolveWeightedTraits(
-    categories.map(c => ({ id: c.id, options: c.options.map(o => ({ id: o.id, weight: o.weight })) })),
-    seed,
-  );
-  // Category order is layer order: background first, top layer last.
-  const chosen = categories.map(c => c.options.find(o => o.id === picks[c.id])!);
-
-  // The identity image. Uploaded under a key derived from the mint, so a
-  // retried composite lands on the same asset instead of a second one.
-  let imageUrl: string;
-  try {
-    const layers = await Promise.all(chosen.map(o => readMedia(o.layerImageUrl!, session.user.id)));
-    imageUrl = await uploadBuffer(`mints/${collectionId}/${mintNumber}/identity.png`, await compositeLayers(layers), "image/png", session.user.id);
-  } catch (err) {
-    console.error(`[veragen] mint composite failed for ${collectionId} #${mintNumber}:`, err instanceof Error ? err.message : err);
-    return NextResponse.json({ error: "The mint's image could not be assembled from its layers. Nothing was generated or charged." }, { status: 503 });
-  }
-
-  const prompt = mintMotionPrompt(chosen.map(o => o.promptFragment), collection.styleLock);
-  const mint = await prisma.mint.create({
-    data: {
-      collectionId,
-      mintNumber,
-      seed,
-      walletAddress,
-      txHash,
-      prompt,
-      imageUrl,
-      status: "processing",
-      traits: { create: chosen.map(o => ({ traitOptionId: o.id })) },
-    },
-    include: { traits: { include: { traitOption: true } } },
+  const outcome = await generateMint({
+    collection, mintNumber, seed, walletAddress, txHash,
+    mediaOwnerId: session.user.id,
+    source: "byok",
   });
-  try {
-    const { requestId } = await submitVideoJob({ prompt, imageUrl: await signedMediaUrl(imageUrl, session.user.id) });
-    await prisma.mint.update({ where: { id: mint.id }, data: { higgsfieldRequestId: requestId } });
-    return NextResponse.json(mint);
-  } catch {
-    await prisma.mint.update({ where: { id: mint.id }, data: { status: "failed", errorMessage: "Submission uncertain. Check your Higgsfield account before generating again." } });
-    return NextResponse.json({ error: "Submission uncertain. Check your Higgsfield account before generating again." }, { status: 502 });
-  }
+  if (!outcome.ok) return NextResponse.json({ error: outcome.error }, { status: outcome.status });
+  return NextResponse.json(outcome.mint);
 });

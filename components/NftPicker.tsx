@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getAddress } from "viem";
-import { createSiweMessage } from "viem/siwe";
+import { linkWallet } from "@/lib/link-wallet-client";
 import type { CharacterData } from "./CharacterPanel";
 
 type Network = "ethereum" | "base" | "polygon" | "arbitrum" | "optimism";
@@ -17,9 +16,6 @@ interface Nft {
   thumbnailUrl: string | null;
   traits: { trait: string; value: string }[];
 }
-
-type Eip1193 = { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
-const wallet = () => (typeof window === "undefined" ? undefined : (window as unknown as { ethereum?: Eip1193 }).ethereum);
 
 /**
  * "Make my NFT move": link a wallet by signature, pick a token you hold, and
@@ -55,32 +51,13 @@ export function NftPicker({ projectId, onCreated }: { projectId: string; onCreat
 
   useEffect(() => { if (wallets?.length) void loadNfts(network); }, [wallets, network, loadNfts]);
 
-  async function linkWallet() {
-    const eth = wallet();
-    if (!eth) return setError("No browser wallet found. Install one (e.g. MetaMask or Rabby) and reload.");
+  async function onLink() {
     setError(null);
     try {
-      setBusy("Waiting for your wallet…");
-      const [account] = (await eth.request({ method: "eth_requestAccounts" })) as string[];
-      const chainId = parseInt((await eth.request({ method: "eth_chainId" })) as string, 16);
-      const start = await fetch("/api/wallet/nonce", { method: "POST" });
-      const ticket = await start.json();
-      if (!start.ok) throw new Error(ticket.error ?? "Could not start linking.");
-      const address = getAddress(account);
-      const message = createSiweMessage({
-        address, chainId, domain: ticket.domain, uri: ticket.uri, nonce: ticket.nonce,
-        version: "1", statement: ticket.statement, issuedAt: new Date(),
-        expirationTime: new Date(Date.now() + 10 * 60 * 1000),
-      });
-      setBusy("Sign the message in your wallet (no gas, no transaction)…");
-      const signature = await eth.request({ method: "personal_sign", params: [message, address] });
-      const link = await fetch("/api/wallet/link", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, signature }) });
-      const linked = await link.json();
-      if (!link.ok) throw new Error(linked.error ?? "Could not link that wallet.");
-      setWallets(prev => Array.from(new Set([...(prev ?? []), linked.address])));
+      const address = await linkWallet(setBusy);
+      setWallets(prev => Array.from(new Set([...(prev ?? []), address])));
     } catch (err) {
-      const code = (err as { code?: number }).code;
-      setError(code === 4001 ? "Signature cancelled." : err instanceof Error ? err.message : "Could not link that wallet.");
+      setError(err instanceof Error ? err.message : "Could not link that wallet.");
     } finally { setBusy(null); }
   }
 
@@ -105,7 +82,7 @@ export function NftPicker({ projectId, onCreated }: { projectId: string; onCreat
       {wallets === null ? null : wallets.length === 0 ? (
         <>
           <p className="hint">Link a wallet to pick an NFT you hold. You&apos;ll sign a message; it costs no gas and grants no access to your funds.</p>
-          <button type="button" className="secondary" disabled={!!busy} onClick={linkWallet}>{busy ?? "Link wallet"}</button>
+          <button type="button" className="secondary" disabled={!!busy} onClick={onLink}>{busy ?? "Link wallet"}</button>
         </>
       ) : (
         <>
@@ -113,7 +90,7 @@ export function NftPicker({ projectId, onCreated }: { projectId: string; onCreat
             <select aria-label="Network" value={network} onChange={e => setNetwork(e.target.value as Network)}>
               {NETWORKS.map(n => <option key={n} value={n}>{n}</option>)}
             </select>
-            <button type="button" className="timeline-delete" disabled={!!busy} onClick={linkWallet}>Link another wallet</button>
+            <button type="button" className="timeline-delete" disabled={!!busy} onClick={onLink}>Link another wallet</button>
           </div>
           {busy && <p className="hint">{busy}</p>}
           {nfts && nfts.length === 0 && !busy && <p className="hint">No NFTs on {network} in your linked wallet{wallets.length > 1 ? "s" : ""}.</p>}

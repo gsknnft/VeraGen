@@ -14,7 +14,10 @@ export function ownerFilter(kind: ResourceKind, userId: string): Record<string, 
   switch (kind) {
     case "project": case "collection": case "mediaAsset": return { ownerId: userId };
     case "clip": case "character": case "export": return { project: { ownerId: userId } };
-    case "traitCategory": case "mint": return { collection: { ownerId: userId } };
+    case "traitCategory": return { collection: { ownerId: userId } };
+    // A mint is reachable by its collection's owner, and by the holder who
+    // claimed it with an on-chain mint proof (lib/mint-proof.ts).
+    case "mint": return { OR: [{ collection: { ownerId: userId } }, { claimedById: userId }] };
     case "traitOption": return { category: { collection: { ownerId: userId } } };
   }
 }
