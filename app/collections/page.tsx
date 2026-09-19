@@ -43,7 +43,7 @@ export default function CollectionsPage() {
       <p className="mock-banner">
         Playground tool, not a canon product surface — instant, weighted,
         deterministic trait mints for prototyping a collection's look and
-        rarity curve. A real drop (e.g. BittyDragons) has its own care- and
+        rarity curve. The real drop has its own care- and
         attestation-gated mint lifecycle elsewhere; this doesn&apos;t represent it.
       </p>
       <p className="subtitle">
