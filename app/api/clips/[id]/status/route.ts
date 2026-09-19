@@ -5,6 +5,7 @@ import { getJobStatus } from "@/lib/higgsfield";
 import { persistRemoteVideo, signedMediaUrl } from "@/lib/storage";
 import { UnapprovedMediaHost } from "@/lib/safe-download";
 import { withAccess } from "@/lib/access";
+import { attachClipVideoToShares } from "@/lib/share";
 
 export const runtime = "nodejs";
 
@@ -66,6 +67,7 @@ export const GET = withAccess("clip", async (
         trimEnd: duration,
       },
     });
+    if (durableUrl) await attachClipVideoToShares(id, durableUrl);
     return NextResponse.json(updated);
   } catch (err) {
     // A finished-but-unsaveable clip is a setup problem on our side, not the

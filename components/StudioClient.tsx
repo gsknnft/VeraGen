@@ -67,6 +67,26 @@ export function StudioClient({
   const [pollError, setPollError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [publicShareUrl, setPublicShareUrl] = useState<string | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+
+  async function createShareFromClip(clipId: string) {
+    setShareBusy(true); setExportError(null);
+    try {
+      const res = await fetch("/api/shares", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clipId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not create share link.");
+      setPublicShareUrl(data.url);
+      try { await navigator.clipboard.writeText(data.url); } catch { /* ignore */ }
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Could not create share link.");
+    } finally { setShareBusy(false); }
+  }
+
   const exportAbort = useRef<AbortController | null>(null);
   const exportBlob = useRef<Blob | null>(null);
   const exportObjectUrl = useRef<string | null>(null);
@@ -268,7 +288,13 @@ export function StudioClient({
             {exporting ? (exportStatus ?? "Rendering…") : "Export MP4"}
           </button>
           {exporting && <button onClick={() => exportAbort.current?.abort()}>Cancel export</button>}
-          {exportUrl && <button onClick={shareExport}>Share video</button>}
+          {exportUrl && <button onClick={shareExport}>Share video file</button>}
+          {completedClips.length > 0 && (
+            <button type="button" disabled={shareBusy} onClick={() => createShareFromClip(completedClips[completedClips.length - 1].id)}>
+              {shareBusy ? "Creating link…" : "Copy public share link"}
+            </button>
+          )}
+          {publicShareUrl && <a className="download-link" href={publicShareUrl} target="_blank" rel="noreferrer">Open share page</a>}
           {exportError && <p className="error">{exportError}</p>}
           {exportUrl && (
             <a className="download-link" href={exportUrl} download="veragen-social.mp4">

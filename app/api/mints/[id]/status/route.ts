@@ -5,6 +5,7 @@ import { getJobStatus } from "@/lib/higgsfield";
 import { persistRemoteVideo, signedMediaUrl } from "@/lib/storage";
 import { UnapprovedMediaHost } from "@/lib/safe-download";
 import { withAccess } from "@/lib/access";
+import { attachMintVideoToShares } from "@/lib/share";
 
 export const runtime = "nodejs";
 
@@ -64,6 +65,7 @@ export const GET = withAccess("mint", async (
       data: { status: "completed", videoUrl: durableUrl, durationSeconds: duration },
       include: { traits: { include: { traitOption: true } } },
     });
+    if (durableUrl) await attachMintVideoToShares(id, durableUrl, mint.imageUrl);
     return NextResponse.json(updated);
   } catch (err) {
     // See the clip status route: a setup gap is not the user's session.

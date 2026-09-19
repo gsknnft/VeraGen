@@ -31,6 +31,26 @@ export function ClaimClient({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<string[]>([]);
+  const [shareLinks, setShareLinks] = useState<Record<string, string>>({});
+  const [shareBusy, setShareBusy] = useState<string | null>(null);
+
+  async function shareClaim(mintId: string) {
+    if (shareBusy) return;
+    setShareBusy(mintId); setError(null);
+    try {
+      const res = await fetch("/api/shares", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mintId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not create share link.");
+      setShareLinks(prev => ({ ...prev, [mintId]: data.url }));
+      try { await navigator.clipboard.writeText(data.url); } catch { /* ignore */ }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create share link.");
+    } finally { setShareBusy(null); }
+  }
+
 
   // Poll anything still animating. The status route is open to the holder
   // who claimed the mint (ownerFilter "mint").
@@ -123,7 +143,15 @@ export function ClaimClient({
                 )}
                 <p className="timeline-label">#{c.mintNumber} · {c.status === "processing" ? "coming to life…" : c.status}</p>
                 {c.status === "failed" && <p className="hint">{c.errorMessage ?? "Generation failed."} Paste the same transaction to retry.</p>}
-                {c.status === "completed" && c.videoUrl && <a className="download-link" href={c.videoUrl} download>Download</a>}
+                {c.status === "completed" && c.videoUrl && (
+                  <>
+                    <a className="download-link" href={c.videoUrl} download>Download</a>
+                    <button type="button" className="secondary" disabled={shareBusy === c.id} onClick={() => shareClaim(c.id)}>
+                      {shareLinks[c.id] ? "Copy share link again" : (shareBusy === c.id ? "Sharing…" : "Get share link")}
+                    </button>
+                    {shareLinks[c.id] && <p className="hint">{shareLinks[c.id]}</p>}
+                  </>
+                )}
               </div>
             ))}
           </div>

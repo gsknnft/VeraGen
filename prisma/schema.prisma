@@ -350,6 +350,7 @@ model User {
   mediaAssets   MediaAsset[]
   wallets       LinkedWallet[]
   claimedMints  Mint[]         @relation("ClaimedMints")
+  shareLinks    ShareLink[]
 
   @@unique([email])
   @@map("user")
@@ -438,5 +439,29 @@ model UsageQuota {
   key String @id
   count Int
   expiresAt DateTime
+}
+
+/// Public capability URL for a finished (or in-progress) video. Media stays
+/// private in S3; `/api/share/<token>/media` is the only public read path.
+model ShareLink {
+  id          String   @id @default(cuid())
+  /// Unguessable token used in `/s/[token]`.
+  token       String   @unique
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId     String
+  title       String
+  description String?
+  /// `/api/media/<id>` poster for OG/Twitter cards (unfurls before video is ready).
+  posterUrl   String?
+  /// `/api/media/<id>` playable MP4 once generation finishes.
+  videoUrl    String?
+  clipId      String?
+  mintId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([clipId])
+  @@index([mintId])
 }
 
