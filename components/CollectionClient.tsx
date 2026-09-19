@@ -7,6 +7,8 @@ interface TraitOption {
   label: string;
   promptFragment: string;
   weight: number;
+  /** The option's art layer; every option needs one before minting. */
+  layerImageUrl?: string | null;
 }
 
 interface TraitCategory {
@@ -24,6 +26,8 @@ interface MintData {
   mintNumber: number;
   status: "processing" | "completed" | "failed";
   videoUrl: string | null;
+  /** The composited identity still, available as soon as the mint exists. */
+  imageUrl?: string | null;
   errorMessage: string | null;
   traits: MintTrait[];
 }
@@ -158,7 +162,17 @@ export function CollectionClient({
     }
   }
 
-  const canMint = categories.some((c) => c.options.length > 0);
+  const hasOptions = categories.some((c) => c.options.length > 0);
+  // Every rollable option needs art: the mint animates the composited layers,
+  // and an option without a layer would leave nothing but words to animate.
+  const missingLayers = categories.flatMap((c) => c.options.filter((o) => !o.layerImageUrl).map((o) => o.label));
+  const canMint = hasOptions && missingLayers.length === 0;
+
+  function handleLayerUploaded(categoryId: string, option: TraitOption) {
+    setCategories((prev) =>
+      prev.map((c) => (c.id === categoryId ? { ...c, options: c.options.map((o) => (o.id === option.id ? option : o)) } : c))
+    );
+  }
 
   return (
     <div className="studio">
@@ -183,6 +197,7 @@ export function CollectionClient({
               handleAddOption(category.id, label, fragment, weight)
             }
             onDeleteOption={(optionId) => handleDeleteOption(category.id, optionId)}
+            onLayerUploaded={(option) => handleLayerUploaded(category.id, option)}
           />
         ))}
 
@@ -229,7 +244,12 @@ export function CollectionClient({
           <button className="primary" onClick={handleMint} disabled={minting || !canMint}>
             {minting ? "Minting…" : "Generate next mint"}
           </button>
-          {!canMint && <p className="subtitle">Add at least one trait option to mint.</p>}
+          {!hasOptions && <p className="subtitle">Add at least one trait option to mint.</p>}
+          {hasOptions && missingLayers.length > 0 && (
+            <p className="subtitle">
+              Add layer art to every option before minting ({missingLayers.length} missing: {missingLayers.slice(0, 4).join(", ")}{missingLayers.length > 4 ? "…" : ""}).
+            </p>
+          )}
         </div>
         {mintError && <p className="error">{mintError}</p>}
 
@@ -237,9 +257,13 @@ export function CollectionClient({
           {mints.map((mint) => (
             <div key={mint.id} className="timeline-item" style={{ cursor: "default" }}>
               {mint.status === "completed" && mint.videoUrl && (
-                <video src={mint.videoUrl} muted loop autoPlay className="timeline-thumb" />
+                <video src={mint.videoUrl} poster={mint.imageUrl ?? undefined} muted loop autoPlay className="timeline-thumb" />
               )}
-              {mint.status === "processing" && <div className="timeline-thumb processing">…</div>}
+              {mint.status === "processing" && (mint.imageUrl
+                // The identity exists before the video does: show it while it animates.
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={mint.imageUrl} alt={`Mint #${mint.mintNumber}`} className="timeline-thumb processing" />
+                : <div className="timeline-thumb processing">…</div>)}
               {mint.status === "failed" && <div className="timeline-thumb failed">✕</div>}
               <p className="timeline-label">#{mint.mintNumber}</p>
               <p style={{ fontSize: "0.7rem", color: "#777" }}>
@@ -258,12 +282,26 @@ function TraitCategoryRow({
   onDeleteCategory,
   onAddOption,
   onDeleteOption,
+  onLayerUploaded,
 }: {
   category: TraitCategory;
   onDeleteCategory: () => void;
   onAddOption: (label: string, promptFragment: string, weight: number) => void;
   onDeleteOption: (optionId: string) => void;
+  onLayerUploaded: (option: TraitOption) => void;
 }) {
+  const [layerError, setLayerError] = useState<string | null>(null);
+
+  async function uploadLayer(optionId: string, file: File) {
+    setLayerError(null);
+    const form = new FormData();
+    form.append("layer", file);
+    const res = await fetch(`/api/trait-options/${optionId}/layer`, { method: "POST", body: form });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return setLayerError(data.error ?? "Layer upload failed.");
+    onLayerUploaded(data);
+  }
+
   const [label, setLabel] = useState("");
   const [fragment, setFragment] = useState("");
   const [weight, setWeight] = useState(1);
@@ -280,9 +318,19 @@ function TraitCategoryRow({
       <div className="vibe-grid">
         {category.options.map((o) => (
           <div key={o.id} className="vibe-button" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {o.layerImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={o.layerImageUrl} alt={`${o.label} layer`} style={{ width: 64, height: 64, objectFit: "contain", background: "repeating-conic-gradient(#2a2a2a 0% 25%, #1c1c1c 0% 50%) 50% / 12px 12px", borderRadius: 6 }} />
+            ) : (
+              <span style={{ fontSize: "0.7rem", color: "#d98a6a" }}>no layer art</span>
+            )}
             <span>
               {o.label} (w{o.weight})
             </span>
+            <label className="timeline-delete" style={{ cursor: "pointer" }}>
+              {o.layerImageUrl ? "Replace layer" : "Add layer"}
+              <input type="file" accept="image/png,image/webp,image/jpeg" hidden onChange={(e) => { const file = e.target.files?.[0]; if (file) void uploadLayer(o.id, file); e.target.value = ""; }} />
+            </label>
             <button type="button" className="timeline-delete" onClick={() => onDeleteOption(o.id)}>
               Remove
             </button>
@@ -290,6 +338,7 @@ function TraitCategoryRow({
         ))}
       </div>
 
+      {layerError && <p className="error">{layerError}</p>}
       <div className="trim-row">
         <label>
           Label

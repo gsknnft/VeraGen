@@ -243,6 +243,12 @@ model TraitOption {
   // Relative rarity — higher picks more often. Plain integers, not
   // percentages (a 1/5/20 split reads as roughly common/uncommon/rare).
   weight         Int           @default(1)
+  // This option's art layer (`/api/media/<id>`), normalized on upload to one
+  // transparent canvas so layers always align. A mint composites its rolled
+  // layers in category sortOrder into its identity image — the HashLips /
+  // art-engine model. Minting refuses while any option lacks one: without the
+  // art, the only identity left is words.
+  layerImageUrl  String?
   mintTraits     MintTrait[]
 
   @@index([categoryId])
@@ -273,6 +279,10 @@ model Mint {
   txHash        String?
 
   prompt              String
+  /// The composited still (`/api/media/<id>`): the mint's identity (ADR-011).
+  /// The video is generated FROM this image, never from the prompt alone, so
+  /// the character on screen is the one the traits describe.
+  imageUrl            String?
   status              MintStatus @default(processing)
   higgsfieldRequestId String?
   errorMessage        String?

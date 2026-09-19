@@ -1,4 +1,3 @@
-
 # pnpm 11 replaced onlyBuiltDependencies / ignoredBuiltDependencies with a
 # single allowBuilds map: true runs the package's build scripts, false skips
 # them. Every package pnpm would otherwise block is listed explicitly, because
@@ -10,6 +9,9 @@ allowBuilds:
   "@prisma/engines": true
   "prisma": true
   "esbuild": true
+
+minimumReleaseAgeExclude:
+  - '@gsknnft/weighted-roll@1.0.0'
 
 # Security fixes for transitive dependencies pinned by upstream packages.
 overrides:

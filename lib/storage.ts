@@ -52,6 +52,19 @@ export async function signedMediaUrl(reference: string, ownerId: string) {
   if (!asset) throw new Error("Media not found.");
   return getSignedUrl(s3(), new GetObjectCommand({ Bucket: bucket(), Key: asset.key }), { expiresIn: 600 });
 }
+/** The bytes of a media reference the user may read — for server-side work like compositing. */
+export async function readMedia(reference: string, ownerId: string, maxBytes = 16 * 1024 * 1024): Promise<Buffer> {
+  const match = /^\/api\/media\/([a-zA-Z0-9_-]+)$/.exec(reference);
+  if (!match) throw new Error("Legacy public media must be imported into private storage first.");
+  const asset = await prisma.mediaAsset.findFirst({ where: { id: match[1], ...readableMedia(ownerId) } });
+  if (!asset) throw new Error("Media not found.");
+  if (asset.size > maxBytes) throw new Error("Media is too large to process.");
+  const object = await s3().send(new GetObjectCommand({ Bucket: bucket(), Key: asset.key }));
+  const bytes = await object.Body?.transformToByteArray();
+  if (!bytes) throw new Error("Media could not be read.");
+  return Buffer.from(bytes);
+}
+
 // --- Direct uploads -------------------------------------------------------
 //
 // User video goes browser → bucket on a presigned PUT, never through the app.
