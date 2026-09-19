@@ -10,6 +10,7 @@ import {
   type TimelineClip,
 } from "@/remotion/durationUtils";
 import type { StudioCompositionProps } from "@/remotion/Composition";
+import { consumeQuota } from "@/lib/quota";
 import { withAccess } from "@/lib/access";
 import { enqueueExport } from "@/lib/render-queue";
 
@@ -25,9 +26,10 @@ export const runtime = "nodejs";
  */
 export const POST = withAccess("project", async (
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }, session
 ) => {
   if (process.env.ENABLE_SERVER_EXPORTS !== "true") return NextResponse.json({ error: "Server export is disabled. Use browser export." }, { status: 503 });
+  if (!(await consumeQuota(`server-export:${session.user.id}`, 5, 86400))) return NextResponse.json({ error: "Server export allowance reached. Browser export remains available." }, { status: 429 });
   const { id: projectId } = await params;
 
   const body = (await req.json().catch(() => ({}))) as { aspect?: string };

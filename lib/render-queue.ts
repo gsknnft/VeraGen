@@ -45,7 +45,11 @@ export async function enqueueExport(args: {
   durationSeconds: number;
   inputProps: Prisma.InputJsonValue;
 }) {
-  return prisma.export.create({
+  return prisma.$transaction(async tx => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"export:" + args.projectId}))`;
+    const existing = await tx.export.findFirst({ where: { projectId: args.projectId, status: { in: ["queued", "rendering"] } }, select: { id: true, status: true, createdAt: true } });
+    if (existing) return existing;
+    return tx.export.create({
     data: {
       projectId: args.projectId,
       aspect: args.aspect,
@@ -54,6 +58,7 @@ export async function enqueueExport(args: {
       status: "queued",
     },
     select: { id: true, status: true, createdAt: true },
+    });
   });
 }
 
@@ -67,6 +72,9 @@ export async function enqueueExport(args: {
 export async function claimNextExport(): Promise<ClaimedExport | null> {
   const cutoff = new Date(Date.now() - CLAIM_TIMEOUT_MS);
 
+  await prisma.$executeRaw`
+    UPDATE "Export" SET "status" = 'failed', "errorMessage" = 'Render worker exhausted its attempts.', "claimedAt" = NULL, "updatedAt" = NOW()
+    WHERE "status" = 'rendering' AND "claimedAt" < ${cutoff} AND "attempts" >= ${MAX_ATTEMPTS}`;
   const rows = await prisma.$queryRaw<ClaimedExport[]>`
     UPDATE "Export" SET
       "status" = 'rendering',
@@ -86,9 +94,9 @@ export async function claimNextExport(): Promise<ClaimedExport | null> {
   return rows[0] ?? null;
 }
 
-export async function completeExport(id: string, videoUrl: string) {
-  await prisma.export.update({
-    where: { id },
+export async function completeExport(id: string, attempts: number, videoUrl: string) {
+  await prisma.export.updateMany({
+    where: { id, attempts, status: "rendering" },
     data: { status: "completed", videoUrl, errorMessage: null, claimedAt: null },
   });
 }
@@ -102,11 +110,11 @@ export async function completeExport(id: string, videoUrl: string) {
  */
 export async function failExport(id: string, attempts: number, message: string) {
   const exhausted = attempts >= MAX_ATTEMPTS;
-  await prisma.export.update({
-    where: { id },
+  await prisma.export.updateMany({
+    where: { id, attempts, status: "rendering" },
     data: {
       status: exhausted ? "failed" : "queued",
-      errorMessage: message,
+      errorMessage: exhausted ? "This export failed after several attempts." : message,
       claimedAt: null,
     },
   });

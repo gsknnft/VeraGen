@@ -80,7 +80,7 @@ export async function presignUpload(ownerId: string, contentType: UploadType, si
   // itself rejects a PUT that differs from what was declared here.
   const url = await getSignedUrl(
     s3(),
-    new PutObjectCommand({ Bucket: bucket(), Key: key, ContentType: contentType, ContentLength: size }),
+    new PutObjectCommand({ Bucket: bucket(), Key: key, ContentType: contentType, ContentLength: size, ACL: "private" }),
     { expiresIn: 900 },
   );
   return { key, url };
@@ -98,6 +98,10 @@ export async function claimUpload(ownerId: string, pendingKey: string): Promise<
   const match = PENDING_KEY.exec(pendingKey);
   if (!match || match[1] !== ownerId) throw new Error("Upload not found.");
 
+  const finalKey = `veragen/users/${ownerId}/${match[2]}`;
+  const existing = await prisma.mediaAsset.findFirst({ where: { key: finalKey, ownerId } });
+  if (existing) return { reference: `/api/media/${existing.id}`, size: existing.size };
+
   let head;
   try {
     head = await s3().send(new HeadObjectCommand({ Bucket: bucket(), Key: pendingKey }));
@@ -114,39 +118,31 @@ export async function claimUpload(ownerId: string, pendingKey: string): Promise<
   }
 
   // The declared type is a label anyone can set. The first bytes are not.
-  const sniff = await s3().send(new GetObjectCommand({ Bucket: bucket(), Key: pendingKey, Range: "bytes=0-11" }));
+  const sniff = await s3().send(new GetObjectCommand({ Bucket: bucket(), Key: pendingKey, Range: "bytes=0-11", IfMatch: head.ETag }));
   const headBytes = await sniff.Body?.transformToByteArray();
   if (!headBytes || !looksLikeIsoBmff(headBytes)) {
     await discard();
     throw new Error("That file is not a playable MP4 or MOV video.");
   }
 
-  const finalKey = `veragen/users/${ownerId}/${match[2]}`;
+  if (!head.ETag) throw new Error("Upload could not be verified. Try again.");
+  // Serialize completion for this owner. Copy the exact object version that
+  // was inspected; a still-valid PUT URL cannot swap different bytes in.
   const asset = await prisma.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ownerId}))`;
     const existing = await tx.mediaAsset.findUnique({ where: { key: finalKey } });
-    if (existing) return existing; // A repeated claim is idempotent.
+    if (existing) return existing;
     const used = await tx.mediaAsset.aggregate({ where: { ownerId }, _sum: { size: true } });
     if ((used._sum.size ?? 0) + size > ALLOWANCE_BYTES) throw new Error("Storage allowance reached.");
+    try {
+      await s3().send(new CopyObjectCommand({
+        Bucket: bucket(), Key: finalKey, CopySource: `${bucket()}/${pendingKey}`,
+        CopySourceIfMatch: head.ETag, ContentType: contentType,
+        MetadataDirective: "REPLACE", ACL: "private", CacheControl: "private, max-age=0",
+      }), { abortSignal: AbortSignal.timeout(15000) });
+    } catch { throw new Error("Upload changed or could not be saved. Try again."); }
     return tx.mediaAsset.create({ data: { ownerId, key: finalKey, contentType, size } });
-  }).catch(async (err) => {
-    await discard();
-    throw err;
-  });
-
-  try {
-    await s3().send(new CopyObjectCommand({
-      Bucket: bucket(),
-      Key: finalKey,
-      CopySource: `${bucket()}/${pendingKey}`,
-      ContentType: contentType,
-      MetadataDirective: "REPLACE",
-      CacheControl: "private, max-age=0",
-    }));
-  } catch {
-    await prisma.mediaAsset.delete({ where: { id: asset.id } }).catch(() => {});
-    throw new Error("Upload could not be saved. Try again.");
-  }
+  }, { timeout: 20000 });
   await discard();
   return { reference: `/api/media/${asset.id}`, size };
 }

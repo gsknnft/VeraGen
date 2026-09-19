@@ -52,8 +52,10 @@ export const POST = withAccess("project", async (
   }
 
   const last = await prisma.clip.findFirst({ where: { projectId }, orderBy: { order: "desc" } });
-  const clip = await prisma.clip.create({
-    data: {
+  const clip = await prisma.clip.upsert({
+    where: { submissionKey },
+    update: {},
+    create: {
       projectId,
       submissionKey,
       order: (last?.order ?? -1) + 1,

@@ -75,23 +75,18 @@ async function render(job: ClaimedExport): Promise<void> {
       project.ownerId,
     );
 
-    await completeExport(job.id, videoUrl);
+    await completeExport(job.id, job.attempts, videoUrl);
     console.log(`[worker] rendered ${job.id} (attempt ${job.attempts})`);
   } catch (err) {
     // The operator gets the real error; the job row gets a written message,
     // because the owner of the job reads that one.
     console.error(`[worker] export ${job.id} failed on attempt ${job.attempts}`, err);
-    const { requeued } = await failExport(
+    await failExport(
       job.id,
       job.attempts,
       "The render did not complete. It will be retried automatically.",
     );
-    if (!requeued) {
-      await prisma.export.update({
-        where: { id: job.id },
-        data: { errorMessage: "This export could not be rendered after several attempts." },
-      });
-    }
+
   } finally {
     await fs.unlink(outputLocation).catch(() => {});
   }
