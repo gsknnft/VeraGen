@@ -35,10 +35,20 @@ export async function uploadBuffer(logicalKey: string, body: Buffer, contentType
   }
   return `/api/media/${asset.id}`;
 }
+/**
+ * Media a user may READ: their own, plus operator-published example media
+ * (`shared`, set only by scripts/publish-starter.ts). Deliberately not part of
+ * ownerFilter("mediaAsset"), which stays owner-only, so that any future route
+ * that changes or deletes media cannot inherit read-sharing by accident.
+ */
+export function readableMedia(userId: string) {
+  if (!userId) throw new Error("Missing owner");
+  return { OR: [{ ownerId: userId }, { shared: true }] };
+}
 export async function signedMediaUrl(reference: string, ownerId: string) {
   const match = /^\/api\/media\/([a-zA-Z0-9_-]+)$/.exec(reference);
   if (!match) throw new Error("Legacy public media must be imported into private storage first.");
-  const asset = await prisma.mediaAsset.findFirst({ where: { id: match[1], ownerId } });
+  const asset = await prisma.mediaAsset.findFirst({ where: { id: match[1], ...readableMedia(ownerId) } });
   if (!asset) throw new Error("Media not found.");
   return getSignedUrl(s3(), new GetObjectCommand({ Bucket: bucket(), Key: asset.key }), { expiresIn: 600 });
 }

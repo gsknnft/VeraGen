@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/session";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { isMockMode } from "@/lib/higgsfield";
+import { trialRemaining } from "@/lib/trial";
 import { StudioClient } from "@/components/StudioClient";
 import { NavBar } from "@/components/NavBar";
 
@@ -25,12 +26,19 @@ export default async function StudioPage({
 
   if (!project) notFound();
 
+  const connected = !(await isMockMode());
+  const freeLeft = connected ? 0 : await trialRemaining(user.id);
+
   return (
     <main className="studio-main">
       <NavBar active="studio" />
       <h1>{project.name || "Untitled project"}</h1>
-      {(await isMockMode()) && (
-        <p className="mock-banner">Connect your own Higgsfield account to generate. Your API credits pay for generation; VeraGen supplies no credits.</p>
+      {!connected && (
+        <p className="mock-banner">
+          {freeLeft > 0
+            ? `You have ${freeLeft} free generation${freeLeft === 1 ? "" : "s"} on us. After that, connect your own Higgsfield account or upload your own clips.`
+            : "Connect your own Higgsfield account to generate, or upload your own clips. Generation uses your Higgsfield API credits."}
+        </p>
       )}
       <StudioClient
         projectId={project.id}
@@ -41,6 +49,7 @@ export default async function StudioPage({
         initialBrandLogoUrl={project.brandLogoUrl}
         initialCtaText={project.ctaText}
         initialTemplate={project.template}
+        generation={connected ? "own" : freeLeft > 0 ? { free: freeLeft } : "none"}
       />
     </main>
   );

@@ -2,7 +2,8 @@ import { getHiggsfieldCredentials } from "@/lib/higgsfield-credentials";
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
 import { prisma } from "@/lib/db";
-import { submitVideoJob } from "@/lib/higgsfield";
+import { submitVideoJob, type CreditSource } from "@/lib/higgsfield";
+import { trialConfig, reserveTrial, releaseTrial } from "@/lib/trial";
 import { consumeQuota } from "@/lib/quota";
 import { uploadBuffer, signedMediaUrl } from "@/lib/storage";
 import { VALID_VIBES, type Vibe } from "@/lib/vibes";
@@ -15,7 +16,11 @@ export const POST = withAccess("project", async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }, session
 ) => {
-  if (!(await getHiggsfieldCredentials())) return NextResponse.json({ error: "Connect your own Higgsfield account. Generation uses your API credits." }, { status: 401 });
+  // Their own key pays if they have one connected; otherwise the operator's
+  // free trial may (lib/trial.ts). The slot itself is reserved much later,
+  // immediately before the billable call.
+  const ownKey = !!(await getHiggsfieldCredentials());
+  if (!ownKey && !trialConfig().enabled) return NextResponse.json({ error: "Connect your own Higgsfield account to generate, or upload your own clips." }, { status: 401 });
   const { id: projectId } = await params;
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
@@ -100,19 +105,38 @@ export const POST = withAccess("project", async (
   });
   const order = (last?.order ?? -1) + 1;
 
+  // Everything has been validated; only now is a free trial slot taken.
+  const source: CreditSource = ownKey ? "byok" : "trial";
+  if (source === "trial") {
+    const reservation = await reserveTrial(session.user.id);
+    if (reservation === "used") return NextResponse.json({ error: "You've used your free generations. Connect your own Higgsfield account to keep generating, or upload your own clips." }, { status: 402 });
+    if (reservation === "paused") return NextResponse.json({ error: "Today's free generations are all taken. Try again tomorrow, connect your own Higgsfield account, or upload your own clips." }, { status: 429 });
+    if (reservation !== "ok") return NextResponse.json({ error: "Connect your own Higgsfield account to generate, or upload your own clips." }, { status: 401 });
+  }
+
   // Reserve the attempt in Postgres before making a billable call.
   let clip;
   try {
     clip = await prisma.clip.create({ data: { projectId, submissionKey, order, prompt, vibe, sourceImageUrl: durableImageUrl ?? null, characterId, status: "processing" } });
   } catch {
+    // No request reached the provider, so a trial slot is returned in full.
+    if (source === "trial") await releaseTrial(session.user.id, { billable: false });
     const previous = await prisma.clip.findUnique({ where: { submissionKey } });
     if (previous) return NextResponse.json(previous);
     return NextResponse.json({ error: "Could not reserve this generation. No request was sent." }, { status: 503 });
   }
   try {
-    const { requestId } = await submitVideoJob({ prompt: finalPrompt, imageUrl });
+    const { requestId } = await submitVideoJob({ prompt: finalPrompt, imageUrl }, source);
     return NextResponse.json(await prisma.clip.update({ where: { id: clip.id }, data: { higgsfieldRequestId: requestId } }));
   } catch {
+    if (source === "trial") {
+      // The request may have reached the provider, so the daily cap keeps the
+      // slot (the operator may have paid). The user gets theirs back: an
+      // unconfirmed submission is not their free generation.
+      await releaseTrial(session.user.id, { billable: true });
+      const failed = await prisma.clip.update({ where: { id: clip.id }, data: { status: "failed", errorMessage: "The free generation could not be started. It hasn't counted against you; try again." } });
+      return NextResponse.json(failed);
+    }
     const failed = await prisma.clip.update({ where: { id: clip.id }, data: { status: "failed", errorMessage: "Submission could not be confirmed. Check your Higgsfield account before starting another generation; it may have been charged." } });
     return NextResponse.json(failed);
   }

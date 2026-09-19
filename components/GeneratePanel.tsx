@@ -3,16 +3,27 @@
 import { useEffect, useRef, useState } from "react";
 import { VIBE_OPTIONS, type Vibe } from "@/lib/vibes";
 
+/** Their own connected key, N free trial generations left, or neither. */
+export type GenerationMode = "own" | "none" | { free: number };
+
 interface GeneratePanelProps {
   onGenerate: (form: FormData) => Promise<void>;
   disabled: boolean;
+  generation: GenerationMode;
   selectedCharacterId: string | null;
   selectedCharacterName: string | null;
+}
+
+function generateLabel(generation: GenerationMode) {
+  if (generation === "own") return "Generate — uses my Higgsfield credits";
+  if (generation === "none") return "Connect Higgsfield to generate";
+  return `Generate free (${generation.free} left)`;
 }
 
 export function GeneratePanel({
   onGenerate,
   disabled,
+  generation,
   selectedCharacterId,
   selectedCharacterName,
 }: GeneratePanelProps) {
@@ -124,7 +135,7 @@ export function GeneratePanel({
       </div>
 
       <button className="primary" type="submit" disabled={disabled || submitting}>
-        {submitting ? "Starting…" : "Generate — uses my Higgsfield credits"}
+        {submitting ? "Starting…" : generateLabel(generation)}
       </button>
 
       {error && <p className="error">{error}</p>}

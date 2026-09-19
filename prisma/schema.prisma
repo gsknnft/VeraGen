@@ -184,6 +184,11 @@ model MediaAsset {
   contentType String
   /// Bytes. Summed per owner to enforce the storage allowance.
   size        Int
+  /// Readable by every signed-in user, not just the owner. Set only by the
+  /// operator's `pnpm starter:publish` script, for the example clips in the
+  /// starter project; no route can set it. Still counts against the owner's
+  /// storage, never the viewer's.
+  shared      Boolean  @default(false)
   createdAt   DateTime @default(now())
 
   @@index([ownerId])

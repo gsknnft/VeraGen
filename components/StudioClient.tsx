@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { browserExport } from "@/lib/browser-export";
-import { GeneratePanel } from "./GeneratePanel";
+import { GeneratePanel, type GenerationMode } from "./GeneratePanel";
 import { UploadClip } from "./UploadClip";
 import { Timeline, type ClipData } from "./Timeline";
 import { PreviewPlayer } from "./PreviewPlayer";
@@ -30,6 +30,7 @@ export function StudioClient({
   initialBrandLogoUrl,
   initialCtaText,
   initialTemplate,
+  generation: initialGeneration,
 }: {
   projectId: string;
   projectName: string;
@@ -39,7 +40,10 @@ export function StudioClient({
   initialBrandLogoUrl: string | null;
   initialCtaText: string | null;
   initialTemplate: BrandTemplate;
+  /** Who pays for the next generation: their own key, our free trial, or nobody yet. */
+  generation: GenerationMode;
 }) {
+  const [generation, setGeneration] = useState<GenerationMode>(initialGeneration);
   const [clips, setClips] = useState<ClipData[]>(initialClips);
   const [characters, setCharacters] = useState<CharacterData[]>(initialCharacters);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
@@ -91,6 +95,11 @@ export function StudioClient({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Generation failed");
       setClips((prev) => [...prev, data]);
+      // A failed trial submission is refunded server-side, so only a started
+      // job spends one of the free generations shown here.
+      if (data.status !== "failed") {
+        setGeneration((g) => (typeof g === "object" ? (g.free > 1 ? { free: g.free - 1 } : "none") : g));
+      }
     },
     [projectId]
   );
@@ -267,7 +276,8 @@ export function StudioClient({
 
       <GeneratePanel
         onGenerate={handleGenerate}
-        disabled={false}
+        disabled={generation === "none"}
+        generation={generation}
         selectedCharacterId={selectedCharacterId}
         selectedCharacterName={selectedCharacterName}
       />
