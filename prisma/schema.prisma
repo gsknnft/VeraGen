@@ -297,6 +297,12 @@ model Mint {
   // wallet) — this is provenance for *how* the roll was made, not *who
   // owns it*.
   seed          String
+  /// Hash of the chosen trait options — this mint's combination, its "DNA".
+  /// Unique per collection: two mints cannot be the same character. A roll
+  /// that collides is re-rolled with a recorded salt rather than served as a
+  /// duplicate, because rarity means nothing if the same combination can be
+  /// minted twice.
+  dna           String?
   walletAddress String?
   txHash        String?
 
@@ -322,6 +328,7 @@ model Mint {
   createdAt DateTime    @default(now())
 
   @@unique([collectionId, mintNumber])
+  @@unique([collectionId, dna])
   @@index([claimedById])
 }
 

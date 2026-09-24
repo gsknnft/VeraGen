@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { resolveWeightedTraits } from "@gsknnft/weighted-roll";
 import { prisma } from "./db";
 import { submitVideoJob, type CreditSource } from "./higgsfield";
@@ -58,12 +59,34 @@ export async function generateMint(args: {
   if (!check.ok) return { ok: false, status: 400, error: check.error, billable: false };
   const { categories } = check;
 
-  const picks = resolveWeightedTraits(
-    categories.map(c => ({ id: c.id, options: c.options.map(o => ({ id: o.id, weight: o.weight })) })),
-    args.seed,
+  // Roll, then re-roll on a collision: rarity means nothing if the same
+  // combination can be minted twice. The salt is derived, not random, so the
+  // result stays reproducible from the seed that gets recorded.
+  const table = categories.map(c => ({ id: c.id, options: c.options.map(o => ({ id: o.id, weight: o.weight })) }));
+  const space = categories.reduce((n, c) => n * c.options.length, 1);
+  const taken = new Set(
+    (await prisma.mint.findMany({ where: { collectionId: args.collection.id }, select: { dna: true } }))
+      .flatMap(m => (m.dna ? [m.dna] : [])),
   );
-  // Category order is layer order: background first, top layer last.
-  const chosen = categories.map(c => c.options.find(o => o.id === picks[c.id])!);
+  let chosen: MintableCollection["traitCategories"][number]["options"] = [];
+  let dna = "";
+  let seed = args.seed;
+  for (let attempt = 0; ; attempt++) {
+    const picks = resolveWeightedTraits(table, seed);
+    // Category order is layer order: background first, top layer last.
+    chosen = categories.map(c => c.options.find(o => o.id === picks[c.id])!);
+    dna = createHash("sha256").update(chosen.map(o => o.id).join(":")).digest("hex").slice(0, 32);
+    if (!taken.has(dna)) break;
+    if (taken.size >= space || attempt >= 64) {
+      return {
+        ok: false,
+        status: 409,
+        error: `Every trait combination in this collection has been minted (${space} possible). Add trait options to make more.`,
+        billable: false,
+      };
+    }
+    seed = `${args.seed}#${attempt + 1}`;
+  }
 
   let imageUrl: string;
   try {
@@ -81,7 +104,8 @@ export async function generateMint(args: {
     mint = await createMint({
       collectionId: args.collection.id,
       mintNumber: args.mintNumber,
-      seed: args.seed,
+      seed,
+      dna,
       walletAddress: args.walletAddress,
       txHash: args.txHash,
       prompt,
