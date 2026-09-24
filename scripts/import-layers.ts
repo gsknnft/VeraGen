@@ -24,6 +24,9 @@
  * Re-running is safe: an option whose label already exists in the category is
  * left alone.
  */
+// Load env the way Next does: .env first, then .env.local wins. Node loads
+// neither for a plain script, and Prisma only pulls in .env for its own URL.
+for (const file of [".env", ".env.local"]) { try { process.loadEnvFile(file); } catch { /* optional */ } }
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
