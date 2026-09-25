@@ -35,16 +35,27 @@ export const PATCH = withAccess("collection", async (
 ) => {
   const { id } = await params;
   const body = (await req.json()) as {
-    name?: string; styleLock?: string;
+    name?: string; styleLock?: string; description?: unknown; externalUrl?: unknown;
     chainNetwork?: unknown; contractAddress?: unknown; sponsoredPerDay?: unknown; mintMinValueWei?: unknown;
   };
 
   const data: {
-    name?: string; styleLock?: string | null;
+    name?: string; styleLock?: string | null; description?: string | null; externalUrl?: string | null;
     chainNetwork?: string | null; contractAddress?: string | null; sponsoredPerDay?: number; mintMinValueWei?: string | null;
   } = {};
   if (typeof body.name === "string" && body.name.trim()) data.name = body.name.trim();
   if ("styleLock" in body) data.styleLock = body.styleLock || null;
+  // Collection lore and link: both travel in every mint's metadata.
+  if ("description" in body) {
+    data.description = typeof body.description === "string" && body.description.trim() ? body.description.trim() : null;
+  }
+  if ("externalUrl" in body) {
+    const raw = typeof body.externalUrl === "string" ? body.externalUrl.trim() : "";
+    if (raw && !raw.startsWith("https://")) {
+      return NextResponse.json({ error: "External link must start with https://" }, { status: 400 });
+    }
+    data.externalUrl = raw || null;
+  }
 
   // Mint-funded claims. Each field is validated here rather than trusted,
   // because the claim route reads them to decide what counts as a paid mint.

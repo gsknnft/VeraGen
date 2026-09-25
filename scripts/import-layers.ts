@@ -34,7 +34,9 @@ import { prisma } from "../lib/db";
 import { normalizeLayer, LAYER_CANVAS } from "../lib/composite";
 import { uploadBuffer } from "../lib/storage";
 
-type Args = { dir?: string; collection?: string; category?: string; owner?: string; apply: boolean; weight: number };
+const KINDS = ["background", "body", "feature", "accessory", "companion"] as const;
+type Kind = (typeof KINDS)[number];
+type Args = { dir?: string; collection?: string; category?: string; owner?: string; apply: boolean; weight: number; kind: Kind };
 
 function parseArgs(): Args {
   const argv = process.argv.slice(2);
@@ -49,6 +51,7 @@ function parseArgs(): Args {
     owner: get("owner"),
     apply: argv.includes("--apply"),
     weight: Number(get("weight") ?? 1),
+    kind: (KINDS as readonly string[]).includes(get("kind") ?? "") ? (get("kind") as Kind) : "feature",
   };
 }
 
@@ -76,7 +79,7 @@ async function registration(bytes: Buffer) {
 async function main() {
   const args = parseArgs();
   if (!args.dir || !args.collection || !args.category) {
-    throw new Error('Usage: pnpm collection:import --dir <folder> --collection <name|id> --category <name> [--owner <email>] [--weight 1] [--apply]');
+    throw new Error(`Usage: pnpm collection:import --dir <folder> --collection <name|id> --category <name> [--kind ${KINDS.join("|")}] [--owner <email>] [--weight 1] [--apply]`);
   }
 
   const ownerEmail = args.owner ?? process.env.MINT_LAB_USERS?.split(",")[0]?.trim() ?? process.env.VERAGEN_DEV_USER;
@@ -90,7 +93,7 @@ async function main() {
   console.log(`${args.apply ? "IMPORTING" : "DRY RUN"} ${files.length} file(s) from ${args.dir}`);
   console.log(`  owner      ${owner.email}`);
   console.log(`  collection ${args.collection}`);
-  console.log(`  category   ${args.category}\n`);
+  console.log(`  category   ${args.category} (kind: ${args.kind}, one of ${KINDS.join(" | ")})\n`);
 
   // Read and vet everything BEFORE writing anything.
   const accepted: { file: string; label: string; bytes: Buffer }[] = [];
@@ -146,7 +149,10 @@ async function main() {
   const existingCategories = await prisma.traitCategory.findMany({ where: { collectionId: collection.id }, select: { id: true, name: true, sortOrder: true } });
   const category = existingCategories.find(c => c.name === args.category)
     ?? await prisma.traitCategory.create({
-      data: { collectionId: collection.id, name: args.category, sortOrder: existingCategories.length },
+      // Kind is meaning (what this category is), sortOrder is position (how it
+      // stacks). A skin carries the silhouette, so it belongs under everything
+      // worn and over any background.
+      data: { collectionId: collection.id, name: args.category, kind: args.kind, sortOrder: existingCategories.length },
     });
 
   const existing = new Set((await prisma.traitOption.findMany({ where: { categoryId: category.id }, select: { label: true } })).map(o => o.label));

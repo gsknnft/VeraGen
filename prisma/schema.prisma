@@ -213,6 +213,11 @@ model Collection {
   // Same mechanism as Project.styleLock — appended to every mint's
   // assembled prompt so the whole set reads as one world.
   styleLock       String?
+  /// The collection's own lore. Opens every mint's metadata description,
+  /// before that mint's own trait lore.
+  description     String?
+  /// Shown as `external_url` in token metadata.
+  externalUrl     String?
   // What `ownerFilter` matches on. Required: every create stamps the
   // session user, and the production database was empty when this was
   // tightened, so there was nothing to backfill. An ownerless row cannot exist.
@@ -248,6 +253,15 @@ model TraitCategory {
   collection   Collection    @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   collectionId String
   name         String
+  /// What this category's art IS, not what it is called: "background" (behind
+  /// the character), "body" (the creature itself — exactly one, and it carries
+  /// the silhouette), "feature" (drawn on the body: horns, eyes, markings),
+  /// "accessory" (worn or held), "companion" (a second creature in frame).
+  ///
+  /// Every category is a trait in token metadata — this says how the art
+  /// stacks and reads, and sortOrder says where. Do not read "feature" as
+  /// "the trait ones": Background and Companion are traits too.
+  kind         String        @default("feature")
   sortOrder    Int           @default(0)
   options      TraitOption[]
 
@@ -265,6 +279,10 @@ model TraitOption {
   // Relative rarity — higher picks more often. Plain integers, not
   // percentages (a 1/5/20 split reads as roughly common/uncommon/rare).
   weight         Int           @default(1)
+  /// One line of lore for this option, e.g. "born of the first forge".
+  /// Collected into the mint's metadata description, so the art, the trait
+  /// and the story come from the same row rather than three places that drift.
+  lore           String?
   // This option's art layer (`/api/media/<id>`), normalized on upload to one
   // transparent canvas so layers always align. A mint composites its rolled
   // layers in category sortOrder into its identity image — the HashLips /
